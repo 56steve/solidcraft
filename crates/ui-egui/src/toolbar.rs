@@ -542,29 +542,41 @@ pub fn toolbar(app: &mut SolveApp, ui: &mut egui::Ui) {
                         } else if cmds.is_empty() {
                             ui.label(egui::RichText::new("Not available yet").color(t.text_dim));
                         }
+                        let row_w = dropdown_width(app, ui, &cmds);
+                        // Up and Down move the keyboard focus through the enabled rows (from none
+                        // focused: the first or the last), instead of egui's own spatial move.
+                        let (down, up) = ui.input(|i| (i.key_pressed(egui::Key::ArrowDown), i.key_pressed(egui::Key::ArrowUp)));
+                        if down || up {
+                            let enabled: Vec<&str> = cmds.iter().filter(|c| c.info(&app.session).enabled).map(|c| c.id).collect();
+                            let focused = ui.ctx().memory(|m| m.focused());
+                            let at = enabled.iter().position(|id| focused == Some(dropdown_row_id(ui, id)));
+                            let n = enabled.len();
+                            let next = match (at, down) {
+                                (None, true) => Some(0),
+                                (None, false) => n.checked_sub(1),
+                                (Some(i), true) => Some((i + 1) % n.max(1)),
+                                (Some(i), false) => Some((i + n.max(1) - 1) % n.max(1)),
+                            };
+                            if let Some(id) = next.and_then(|i| enabled.get(i)) {
+                                ui.ctx().memory_mut(|m| {
+                                    m.request_focus(dropdown_row_id(ui, id));
+                                    m.move_focus(egui::FocusDirection::None);
+                                });
+                            }
+                        }
                         for c in &cmds {
-                            let info = c.info(&app.session);
-                            ui.horizontal(|ui| {
-                                let (ir, _) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::hover());
-                                icons::paint(ui.painter(), ir, c.icon, t.icon, t.icon_fill, t.accent);
-                                let b = ui.add_enabled(
-                                    info.enabled,
-                                    egui::Button::new(app.tr_label(c.label)).frame(false).shortcut_text(c.shortcut.unwrap_or("")),
-                                );
-                                crate::scenario::publish_handle(&format!("toolbar:{}", c.id), b.rect.center());
-                                if b.secondary_clicked() {
-                                    menu = Some((b.interact_pointer_pos().unwrap_or(b.rect.left_bottom()), c.id));
-                                }
-                                if b.clicked() {
-                                    let id = c.id;
-                                    app.start(id);
+                            match dropdown_row(app, ui, c, row_w) {
+                                RowAction::None => {}
+                                RowAction::Menu(at) => menu = Some((at, c.id)),
+                                RowAction::Start => {
+                                    app.start(c.id);
                                     ui.ctx().data_mut(|d| d.remove::<egui::Id>(egui::Id::new("sc_panel_open")));
                                 }
-                            });
+                            }
                         }
                     });
                 });
-                if area.response.clicked_elsewhere() && !lresp.clicked() {
+                if (area.response.clicked_elsewhere() && !lresp.clicked()) || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     ui.ctx().data_mut(|d| d.remove::<egui::Id>(egui::Id::new("sc_panel_open")));
                 }
             }
@@ -606,6 +618,72 @@ pub fn toolbar(app: &mut SolveApp, ui: &mut egui::Ui) {
             crate::context_menu::open_for(app, at, crate::context_menu::Target::ToolbarCommand { id: id.to_string() });
         }
     });
+}
+
+/// What a click on a panel drop-down row asks for.
+enum RowAction {
+    None,
+    Start,
+    Menu(egui::Pos2),
+}
+
+const ROW_H: f32 = 24.0;
+
+/// The id of a drop-down row (for keyboard focus).
+fn dropdown_row_id(ui: &egui::Ui, id: &str) -> egui::Id {
+    ui.id().with(("dropdown_row", id))
+}
+
+/// How wide a panel drop-down's rows are: the widest label and shortcut, at least 200.
+fn dropdown_width(app: &SolveApp, ui: &egui::Ui, cmds: &[&'static solvecraft_engine::CommandSpec]) -> f32 {
+    let t = Tokens::get();
+    let font = FontId::proportional(13.0);
+    cmds.iter()
+        .map(|c| {
+            let label = ui.painter().layout_no_wrap(app.tr_label(c.label).to_string(), font.clone(), t.text).size().x;
+            let key = c.shortcut.map(|k| ui.painter().layout_no_wrap(k.to_string(), font.clone(), t.text).size().x + 24.0).unwrap_or(0.0);
+            6.0 + 18.0 + 8.0 + label + key + 30.0
+        })
+        .fold(200.0, f32::max)
+}
+
+/// One command row of a panel drop-down: icon, label and shortcut, with the hover background
+/// under the pointer or keyboard focus (like every menu).
+fn dropdown_row(app: &SolveApp, ui: &mut egui::Ui, c: &'static solvecraft_engine::CommandSpec, width: f32) -> RowAction {
+    let t = Tokens::get();
+    let info = c.info(&app.session);
+    let (rect, _) = ui.allocate_exact_size(vec2(width, ROW_H), Sense::hover());
+    let sense = if info.enabled { Sense::click() } else { Sense::hover() };
+    let resp = ui.interact(rect, dropdown_row_id(ui, c.id), sense);
+    let label = app.tr_label(c.label).to_string();
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled() && info.enabled, &label));
+    crate::scenario::publish_handle(&format!("toolbar:{}", c.id), rect.center());
+    crate::scenario::publish_handle(&format!("dropdown:{}", c.id), rect.center());
+    let hot = info.enabled && (resp.hovered() || resp.has_focus());
+    let p = ui.painter();
+    if hot {
+        p.rect_filled(rect, 3.0, t.hover);
+        crate::scenario::publish_handle(&format!("dropdown_hot:{}", c.id), rect.center());
+    }
+    let (ink, fill, acc, text) =
+        if info.enabled { (t.icon, t.icon_fill, t.accent, t.text) } else { (t.border, t.panel_header, t.border, t.text_dim) };
+    let ir = Rect::from_center_size(pos2(rect.left() + 6.0 + 9.0, rect.center().y), vec2(18.0, 18.0));
+    icons::paint(p, ir, c.icon, ink, fill, acc);
+    p.text(pos2(ir.right() + 8.0, rect.center().y), Align2::LEFT_CENTER, &label, FontId::proportional(13.0), text);
+    if let Some(k) = c.shortcut {
+        p.text(pos2(rect.right() - 8.0, rect.center().y), Align2::RIGHT_CENTER, k, FontId::proportional(13.0), t.text_dim);
+    }
+    let resp = match &info.disabled_reason {
+        Some(why) if !info.enabled => resp.on_hover_text(why),
+        _ => resp,
+    };
+    if resp.secondary_clicked() {
+        return RowAction::Menu(resp.interact_pointer_pos().unwrap_or(rect.left_bottom()));
+    }
+    if resp.clicked() && info.enabled {
+        return RowAction::Start;
+    }
+    RowAction::None
 }
 
 /// A toolbar button being dragged (its command id).
