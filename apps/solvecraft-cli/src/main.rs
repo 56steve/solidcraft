@@ -21,6 +21,9 @@ mod fuzz;
 mod oracle;
 mod recipe;
 mod seams;
+// Geometry comparison helpers; not called from the CLI commands yet.
+#[cfg_attr(not(test), allow(dead_code))]
+mod spatial;
 
 use std::process::ExitCode;
 
