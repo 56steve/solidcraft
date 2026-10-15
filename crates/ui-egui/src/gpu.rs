@@ -244,7 +244,8 @@ pub struct ViewportCallback {
     /// and the depth bias.
     pub eye: [f32; 4],
     /// Supersampling (#1288): draw the frame this many times the viewport's pixels in each
-    /// direction and filter it down (1: off).
+    /// direction and filter it down (1: off). Under 1 the frame is drawn smaller and filtered up
+    /// (the product preview past its pixel budget, #1464).
     pub ssaa: f32,
 }
 
@@ -294,6 +295,12 @@ fn joined<'a>(blocks: impl Iterator<Item = &'a Option<Batch>>, own: Option<Batch
     parts.extend(own.into_iter().flat_map(|b| b.parts));
     (!parts.is_empty()).then_some(Batch { parts, chunk })
 }
+
+/// Planned bodies end a GPU chunk one time in this many (by their plan's address), and a chunk
+/// holds at most [`MAX_CHUNK_BODIES`]: a scene of a thousand bodies takes a few dozen dispatches
+/// once, and a changed body re-evaluates a few dozen bodies, not all of them.
+const CHUNK_SPLIT: u64 = 32;
+const MAX_CHUNK_BODIES: usize = 128;
 
 #[derive(Default)]
 struct Batches {
@@ -381,18 +388,25 @@ impl Batches {
         encoder: &mut wgpu::CommandEncoder,
         bodies: &[PlannedBody],
     ) -> Vec<PlannedDraw> {
+        // Chunks end where a body's own plan says (or when full), so a body whose plan changes
+        // (an edit, or a refinement as the view zooms in, #1320) re-evaluates only its own
+        // chunk, not the whole scene.
         let mut chunks: Vec<Vec<&PlannedBody>> = Vec::new();
         let mut filled = 0usize;
+        let mut open = false;
         for b in bodies {
             let n = b.plan.vertex_count();
             match chunks.last_mut() {
-                Some(c) if filled + n <= solidcraft_gpu::MAX_BATCH => c.push(b),
+                Some(c) if open && filled + n <= solidcraft_gpu::MAX_BATCH => c.push(b),
                 _ => {
                     chunks.push(vec![b]);
                     filled = 0;
                 }
             }
             filled += n;
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(&(Arc::as_ptr(&b.plan) as usize), &mut h);
+            open = !std::hash::Hasher::finish(&h).is_multiple_of(CHUNK_SPLIT) && chunks.last().is_some_and(|c| c.len() < MAX_CHUNK_BODIES);
         }
         let key = |c: &[&PlannedBody]| c.iter().map(|b| Arc::as_ptr(&b.plan) as usize).collect::<Vec<usize>>();
         self.resident.retain(|k, _| chunks.iter().any(|c| key(c) == *k));
@@ -509,9 +523,12 @@ const SS_BUDGET: u64 = 384 << 20;
 /// The size (px) to draw a `size` viewport supersampled `factor` times in each direction:
 /// within the device's largest texture side (#869) and the memory budget (at `samples` per pixel,
 /// four bytes of colour and four of depth each). `None` when that leaves under 1.25×: the frame
-/// is drawn as usual.
+/// is drawn as usual. A `factor` under 1 draws it that much smaller, to be filtered up.
 pub(crate) fn supersampled_size(size: [f32; 2], factor: f32, max_side: u32, samples: u32) -> Option<[u32; 2]> {
     let [w, h] = size;
+    if w >= 1.0 && h >= 1.0 && factor > 0.0 && factor < 1.0 {
+        return Some([((w * factor).floor() as u32).clamp(1, max_side.max(1)), ((h * factor).floor() as u32).clamp(1, max_side.max(1))]);
+    }
     if !(w >= 1.0 && h >= 1.0 && factor.is_finite() && factor > 1.0) {
         return None;
     }
@@ -1126,7 +1143,7 @@ impl egui_wgpu::CallbackTrait for ViewportCallback {
                 res.quads.push((img.id, b));
             }
         }
-        res.ss_ready = self.ssaa > 1.0 && res.supersample(device, encoder, self);
+        res.ss_ready = self.ssaa != 1.0 && res.supersample(device, encoder, self);
         Vec::new()
     }
 
