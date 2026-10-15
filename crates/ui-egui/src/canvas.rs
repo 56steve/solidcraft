@@ -116,7 +116,13 @@ pub fn anchor(app: &SolveApp, d: &Dialog) -> Option<(Vec3, Option<Vec3>)> {
             (at, normal.or(dir.map(|d| -d)))
         }
         Kind::Section { .. } | Kind::OffsetPlane { .. } | Kind::OffsetFaces { .. } => (at, normal),
-        // Fillet radii, chamfer distances and shell thickness grow into the body.
+        // Fillet radii and chamfer distances grow the way `blend_grow_dir` gives (into the body
+        // on an outside edge, into the open corner on an inside one); shell thickness grows into
+        // the body.
+        Kind::Fillet { .. } if matches!(first, Sel::Edge { .. }) => {
+            let Sel::Edge { body, index, .. } = first else { return None };
+            (at, st.body(body).and_then(|b| blend_grow_dir(&b.mesh(), *index, at)))
+        }
         Kind::Fillet { .. } | Kind::Shell { .. } => (at, normal.map(|n| -n)),
         Kind::Sheet(_) => (at, crate::dialogs_sheet::arrow(app, d).or(normal)),
         Kind::Plastic(_) => (at, normal),
@@ -159,7 +165,7 @@ fn poly_mid(poly: &[Vec2]) -> Option<(Vec2, Vec2)> {
     last
 }
 
-fn profile_plane(app: &SolveApp, sketch: u64) -> Option<solidcraft_engine::geom::Plane> {
+pub(crate) fn profile_plane(app: &SolveApp, sketch: u64) -> Option<solidcraft_engine::geom::Plane> {
     let component = app.session.doc.feature(sketch)?.component;
     let state = app.session.model.state();
     let plane = state.sketch(sketch)?.plane;
@@ -178,27 +184,61 @@ fn reference_height(app: &SolveApp, d: &Dialog, label: &str, plane: &solidcraft_
     Some(solidcraft_engine::doc::object_height(&app.session.world_state(), plane, centre, p))
 }
 
-/// The outward direction between the two faces at an edge (a fillet's radius arrow points the
-/// other way, into the body).
-fn edge_bisector(m: &Mesh, index: usize, p: Vec3) -> Option<Vec3> {
+/// The two faces at an edge, near `p`: for each, the normal and centroid of its triangle nearest
+/// `p`.
+fn edge_sides(m: &Mesh, index: usize, p: Vec3) -> Option<Vec<(Vec3, Vec3)>> {
     let faces = m.edge_faces.get(index)?;
-    let mut sum = Vec3::ZERO;
-    for f in faces {
-        let n = m
-            .triangles
-            .iter()
-            .zip(&m.tri_face)
-            .filter(|(_, tf)| *tf == f)
-            .filter_map(|(t, _)| m.tri(t))
-            .min_by(|a, b| ((a[0] + a[1] + a[2]) / 3.0).dist(p).total_cmp(&((b[0] + b[1] + b[2]) / 3.0).dist(p)))
-            .and_then(|[a, b, c]| (b - a).cross(c - a).normalized())?;
-        sum += n;
-    }
-    sum.normalized()
+    faces
+        .iter()
+        .map(|f| {
+            m.triangles
+                .iter()
+                .zip(&m.tri_face)
+                .filter(|(_, tf)| *tf == f)
+                .filter_map(|(t, _)| m.tri(t))
+                .min_by(|a, b| ((a[0] + a[1] + a[2]) / 3.0).dist(p).total_cmp(&((b[0] + b[1] + b[2]) / 3.0).dist(p)))
+                .and_then(|[a, b, c]| Some(((b - a).cross(c - a).normalized()?, (a + b + c) / 3.0)))
+        })
+        .collect()
+}
+
+/// The outward direction between the two faces at an edge: the mean of their normals.
+fn edge_bisector(m: &Mesh, index: usize, p: Vec3) -> Option<Vec3> {
+    edge_sides(m, index, p)?.iter().fold(Vec3::ZERO, |sum, (n, _)| sum + *n).normalized()
+}
+
+/// Whether the edge is an inside (concave) one: each face near it lies in front of the other's
+/// plane, where on an outside edge it lies behind. Only the offset across the edge counts, since
+/// each normal is square to the edge.
+fn edge_concave(m: &Mesh, index: usize, p: Vec3) -> Option<bool> {
+    let sides = edge_sides(m, index, p)?;
+    let [(n1, c1), (n2, c2)] = sides.as_slice() else { return None };
+    let s = (*c1 - p).dot(*n2) + (*c2 - p).dot(*n1);
+    Some(s > 0.0)
+}
+
+/// The direction a fillet's radius or a chamfer's distance grows from an edge, along the bisector
+/// of its faces: into the body on an outside edge, where the blend takes material away, and out
+/// into the open corner on an inside edge, where it adds material (#1384). Dragging along it
+/// increases the value either way.
+pub(crate) fn blend_grow_dir(m: &Mesh, index: usize, p: Vec3) -> Option<Vec3> {
+    let n = edge_bisector(m, index, p)?;
+    Some(if edge_concave(m, index, p).unwrap_or(false) { n } else { -n })
+}
+
+/// Whether a dynamically registered canvas handle owns this point before navigation.
+pub(crate) fn owns_pointer(app: &SolveApp, proj: &Proj, p: Pos2) -> bool {
+    // The triad only registers an egui hit widget after a handle is under the pointer.
+    // Test its geometry before navigation, including the first frame entering a handle.
+    app.dialog.as_ref().and_then(|d| crate::dialogs_move::triad(app, d)).is_some_and(|t| crate::gizmo::contains_pointer(proj, &t, p))
 }
 
 /// Draw the manipulator and the value box (called by the viewport after the model is drawn).
 pub fn show(app: &mut SolveApp, ui: &mut egui::Ui, painter: &egui::Painter, proj: &Proj) {
+    // While OK computes, the inputs hold what it computes: no arrow to drag, no box to type in.
+    if app.applying.is_some() {
+        return;
+    }
     let Some(mut d) = app.dialog.take() else { return };
     if matches!(d.kind, Kind::Assembly(_)) {
         crate::dialogs_assembly::overlay(app, painter, proj, &mut d);
@@ -327,6 +367,16 @@ fn draw(app: &SolveApp, ui: &mut egui::Ui, painter: &egui::Painter, proj: &Proj,
         _ => 1.0,
     };
     let symmetric = to_span.is_none() && matches!(d.kind, Kind::Extrude { direction: 2, .. });
+    let symmetric_scale = if symmetric {
+        d.extra
+            .get("convention")
+            .cloned()
+            .and_then(|v| serde_json::from_value::<solidcraft_engine::doc::ExtrudeConvention>(v).ok())
+            .unwrap_or(solidcraft_engine::doc::ExtrudeConvention::TotalDistance)
+            .symmetric_half_distance(1.0)
+    } else {
+        1.0
+    };
     // Extrudes and moves go either way; radii and thicknesses stay positive.
     let signed = matches!(
         d.kind,
@@ -405,17 +455,19 @@ fn draw(app: &SolveApp, ui: &mut egui::Ui, painter: &egui::Painter, proj: &Proj,
     if let (Some(n), Some(l)) = (dir, len.filter(|_| kind == ValueKind::Length)) {
         let n = n * sign;
         let baseline = to_span.map(f64::abs).unwrap_or(0.0);
-        let mut shown_value = format_len(l + baseline);
+        // Through All already supplies a reach per side; dragging switches to an entered distance.
+        let half = if all_span.is_some() { l } else { l * symmetric_scale };
+        let mut shown_value = format_len(half + baseline);
         let original_shown = shown_value.clone();
-        let dragged = if to_span.is_some() { &mut shown_value } else { &mut *value };
-        if let Some(ts) = drag_arrow(ui, painter, proj, base, bs, n, l + baseline, signed, egui::Id::new("sc_manipulator"), half_height, dragged) {
-            if to_span.is_some()
+        let dragged = if to_span.is_some() || symmetric_scale != 1.0 { &mut shown_value } else { &mut *value };
+        if let Some(ts) = drag_arrow(ui, painter, proj, base, bs, n, half + baseline, signed, egui::Id::new("sc_manipulator"), half_height, dragged) {
+            if (to_span.is_some() || symmetric_scale != 1.0)
                 && shown_value != original_shown
                 && let Ok(v) = app.session.doc.eval(&shown_value, ValueKind::Length)
             {
-                *value = format_len(v - baseline);
+                *value = format_len((v - baseline) / symmetric_scale);
             }
-            if symmetric && let Some(bt) = proj.to_screen(base - n * l) {
+            if symmetric && let Some(bt) = proj.to_screen(base - n * half) {
                 arrow(painter, bs, bt, t.manipulator);
             }
             painter.circle(bs, 3.5, t.manipulator, Stroke::new(1.0, Color32::WHITE));
@@ -586,8 +638,9 @@ fn radius_spline_handles(app: &SolveApp, ui: &mut egui::Ui, painter: &egui::Pain
             let (spline, start) = law.as_ref()?;
             let other = if start.dist(*a) <= start.dist(*b) { *b } else { *a };
             let mid = *start + (other - *start) * 0.5;
-            // Into the body, between the two faces (the edge is straight between planar faces).
-            let n = -edge_bisector(mesh, *index, mid)?;
+            // Between the two faces, the way this edge's radius grows: into the body on an outside
+            // edge, into the corner on an inside one (the edge is straight between planar faces).
+            let n = blend_grow_dir(mesh, *index, mid)?;
             let curve = (0..=48)
                 .filter_map(|k| {
                     let u = f64::from(k) / 48.0;
