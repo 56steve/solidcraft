@@ -18,23 +18,23 @@ use crate::{Result, Session};
 pub static COMMANDS: &[CommandSpec] = &[
     CommandSpec::new("surface.patch", "Patch", patch)
         .at("SURFACE", "CREATE")
-        .icon("patch")
+        .icon("surface_patch")
         .params("sketch?: id|name and profiles? (planar patches of sketch regions) | edges: [[x,y,z]] (points on a closed loop of a body's edges: one face on them, planar when the loop is, else a smooth B-spline surface) and body?; continuity?: g0|g1|g2 (edges only, default g0: how the patch meets the faces beside the loop — g1 their tangent planes, g2 also their curvature across the edges) or [{edge: [x,y,z], g: g0|g1|g2}] (those edges so, the rest g0) or {all, edges}; points?: [[x,y,z]] (edges only, up to 64: points the patch passes through); crown?: number −0.9…3 (default 0: only a fitted patch, whose middle becomes fuller by this many times the loop's size — the bump vanishes on the loop, so the face still meets the picked edges and the continuity across them; a loop that is planar and g0 is the exact plane whatever the crown; with points, crown needs a g1 or g2 edge); name?, body_name?"),
     CommandSpec::new("surface.stitch", "Stitch", stitch)
         .at("SURFACE", "MODIFY")
-        .icon("stitch")
+        .icon("surface_stitch")
         .params("bodies: [names] (surfaces sewn into the first; a solid when they close); tolerance?: expr (default: tight)"),
     CommandSpec::new("surface.thicken", "Thicken", thicken)
         .at("SURFACE", "CREATE")
-        .icon("thicken")
+        .icon("surface_thicken")
         .params("bodies: [surface names]; thickness: expr (negative: against the normal); symmetric?: bool; operation?: new|join|cut|intersect; targets?"),
     CommandSpec::new("surface.extend", "Extend", extend)
         .at("SURFACE", "MODIFY")
-        .icon("extend")
+        .icon("surface_extend")
         .params("body: surface name; edges: [[x,y,z]] (points on boundary edges to push out); distance: expr (unless up_to); mode?: natural (the surface itself continued: exact for planes and surfaces of revolution, a B-spline's end spans continued; the default) | tangent (a ruled run-off face along each edge, G1) | curvature (a run-off face keeping the surface's curvature across the edge, G2); up_to?: plane (XY|XZ|YZ|plane name|{origin, normal}) | {body, point} (a face, its surface extended) | \"bounds\" (natural: back to the surface's own bounds, undoing a trim); neighbours?: bool (default true: the edges next to an extended edge are lengthened to meet it; false: the extension's sides run square to the edge)"),
     CommandSpec::new("surface.trim", "Trim", trim)
         .at("SURFACE", "MODIFY")
-        .icon("trim")
+        .icon("surface_trim")
         .params("body: surface name; plane: XY|XZ|YZ|plane name|{origin, normal} or tool: {body, point} (a face, its surface extended); keep: [x,y,z] (a point on the side to keep)"),
     CommandSpec::new("surface.extrude", "Surface Extrude", surface_extrude)
         .at("SURFACE", "CREATE")
@@ -47,18 +47,18 @@ pub static COMMANDS: &[CommandSpec] = &[
     CommandSpec::new("surface.sweep", "Surface Sweep", surface_sweep)
         .at("SURFACE", "CREATE")
         .icon("surface_sweep")
-        .params("sketch?: id|name; curves?: [curve ids] and/or profiles? (as surface.extrude); path_sketch: sketch; path: [curve ids in order] (a path with corners, or 3D curves, gives ruled walls mitred at the corners); orientation?, twist?, scale? (as solid.sweep); name?, body_name? (a surface body, no caps)"),
+        .params("sketch?: id|name; curves?: [curve ids] and/or profiles? (as surface.extrude); path_sketch: sketch; path: [curve ids in order] (a path with corners, or 3D curves, gives ruled walls mitred at the corners); orientation?, twist?, scale?, rails?, rail_fit? (as solid.sweep); name?, body_name? (a surface body, no caps)"),
     CommandSpec::new("surface.loft", "Surface Loft", surface_loft)
         .at("SURFACE", "CREATE")
         .icon("surface_loft")
-        .params("sections: [{sketch, curves?: [curve ids], profiles?}] (2…50 in order; each one chain: a profile without holes, or curves meeting end to end; all open or all closed); name?, body_name? (a surface body: ruled between two sections, smooth through three or more; no caps)"),
+        .params("sections: [{sketch, curves?: [curve ids], profiles?} | {body, edges: [[x,y,z]]}] (2…50 in order; each one chain: a profile without holes, or curves meeting end to end; all open or all closed; a body edge chain takes the face the chain bounds as the surface the end repeats); continuity?: [g0|g1|g2|g3, g0|g1|g2|g3] (each end, default g0: how much of the surface at the first and last section the loft repeats — the tangent plane, the curvature, or how that curvature changes); crown?: [number, number] (default 0: how full each end leaves, -0.9 flattest to 3 fullest); name?, body_name? (a surface body: ruled between two sections, smooth through three or more; no caps)"),
     CommandSpec::new("surface.offset", "Offset Surface", offset)
         .at("SURFACE", "CREATE")
         .icon("surface_offset")
         .params("faces: [[x,y,z]] (points on the faces); body?; distance: expr (signed, along the faces' normals; 0 copies the faces); chain?: bool (each pick's whole smooth chain of faces); tolerance?: expr (how far a fitted face may stray, default 0.01 mm). Planes and cylinders move exactly; other faces are fitted. A new surface body (a solid where its faces close)"),
     CommandSpec::new("surface.ruled", "Ruled Surface", ruled)
         .at("SURFACE", "CREATE")
-        .icon("ruled")
+        .icon("surface_ruled")
         .params("body; edges: [[x,y,z]] (points on a chain of its edges, open or closed); distance: expr (how far the strip reaches); mode?: normal|tangent|angle|direction (default normal: along the normal of the face beside each edge; tangent: continuing it); angle?: expr (angle mode: from `direction`, else from the face's normal, turned away from the face; 90 deg from the normal is tangent); direction?: [x,y,z] (direction mode: the rulings; angle mode: the reference, e.g. a pull direction for a draft); face?: [x,y,z] (a point on the face the directions come from; default: the face beside the most picked edges); flip?: bool (the other side); corners?: mitre|round (sharp corners of the chain; inside corners are always cut back). Lines and arcs give exact planes, cylinders and cones, other edges a fitted ruled B-spline. A new surface body"),
     CommandSpec::new("surface.blend", "Blend Surface", blend)
         .at("SURFACE", "CREATE")
@@ -66,19 +66,19 @@ pub static COMMANDS: &[CommandSpec] = &[
         .params("from, to: {body, edges: [[x,y,z]]} (points on the edges of one chain of each body: two picks on the same edge is that one edge, more chain up); continuity?: [g0|g1|g2|g3, g0|g1|g2|g3] (each end, default g1: how much of the surface at the picked edges the blend repeats — the tangent plane, the curvature, or how that curvature changes); bulge?: [number, number] (default 0: how full each end leaves, -0.9 flattest to 3 fullest); align?: [[x,y,z], [x,y,z]] (a point each end leaves towards, when the faces at the picks do not say); stitch?: bool (sew the blend onto its two bodies where the boundaries meet, replacing them); name?, body_name?"),
     CommandSpec::new("surface.untrim", "Untrim", untrim)
         .at("SURFACE", "MODIFY")
-        .icon("untrim")
+        .icon("surface_untrim")
         .params("face: {body, point}; holes?: all|[[x,y,z]] (points on the inner loops to remove; default: all); outer?: bool (restore the outer boundary to the surface's natural bounds: a free-form surface's own, an analytic surface's span of the face); in_place?: bool (untrim a surface body's face where it is; a solid's face is always copied out). A surface body; the face keeps its name"),
     CommandSpec::new("surface.unstitch", "Unstitch", unstitch)
         .at("SURFACE", "MODIFY")
-        .icon("unstitch")
+        .icon("surface_unstitch")
         .params("body; faces?: [[x,y,z]] (points on the faces to take out, each its own surface body; the rest stay together under the body's name; default: every face its own surface body). A solid comes apart into surfaces"),
     CommandSpec::new("surface.reverse_normal", "Reverse Normal", reverse_normal)
         .at("SURFACE", "MODIFY")
-        .icon("reverse_normal")
+        .icon("surface_reverse_normal")
         .params("body (a surface); faces?: [[x,y,z]] (points on the faces to turn over; default: all of them)"),
     CommandSpec::new("surface.fair", "Fair Surface", fair)
         .at("SURFACE", "MODIFY")
-        .icon("spline_cv")
+        .icon("surface_fair")
         .params("body: surface name; faces?: [[x,y,z]] points on the faces to fair (default: every face); strength?: number (0..1 of the full fairing step, default 1); iterations?: number (1..1000 steps, default 1); keep_edges?: bool (default true: hold the boundary row and the row next to it, so a face keeps meeting its neighbours in position and in tangent); tolerance?: expr mm (how far a control vertex may move, default 0.001 of the body's size). Moves the interior control vertices of each B-spline face to flatten its curvature variation while the boundary stays put: the face keeps its edges and the body its shape within the tolerance, and the warning in the reply carries the energy before and after; name?"),
     planned!("surface.fillet", "Surface Fillet", "769")
         .at("SURFACE", "MODIFY")
@@ -354,10 +354,22 @@ fn surface_sweep(s: &mut Session, p: &Value) -> Result<Value> {
         return Err(bad(cmd, "`path` must list 1…1000 curve ids"));
     }
     let (orientation, twist, scale) = super::features::sweep_options(s, p, cmd)?;
+    let (rails, rail_fit) = super::features::sweep_rails(s, p, cmd, path_sketch)?;
     add_feature(
         s,
         p,
-        FeatureKind::SurfaceSweep { sketch: SketchId(sketch), profiles, curves, path_sketch: SketchId(path_sketch), path, orientation, twist, scale },
+        FeatureKind::SurfaceSweep {
+            sketch: SketchId(sketch),
+            profiles,
+            curves,
+            path_sketch: SketchId(path_sketch),
+            path,
+            orientation,
+            twist,
+            scale,
+            rails,
+            rail_fit,
+        },
     )
 }
 
@@ -369,15 +381,57 @@ fn surface_loft(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let mut sections = Vec::with_capacity(given.len());
     for sec in given {
+        // A section is a chain of sketch curves, or an edge chain of a body whose face the end of
+        // the loft repeats.
+        if let Some(body) = str_(sec, "body") {
+            let edges: Vec<solidcraft_geom::Vec3> =
+                sec.get("edges").and_then(Value::as_array).map(|a| a.iter().filter_map(vec3).collect()).unwrap_or_default();
+            if edges.is_empty() || edges.len() > 10_000 {
+                return Err(bad(cmd, "`sections.edges` must list 1 to 10000 points on the edges of a chain"));
+            }
+            if sec.get("sketch").is_some() {
+                return Err(bad(cmd, "a section is either a sketch chain or a body edge chain"));
+            }
+            sections.push(solidcraft_doc::SheetSection {
+                sketch: SketchId(0),
+                profiles: None,
+                curves: Vec::new(),
+                body: Some(BodyName::from(body.to_string())),
+                edges: edges.into_iter().map(Position).collect(),
+            });
+            continue;
+        }
         let sketch = sketch_id(s, sec.get("sketch"), cmd, "sections.sketch")?;
         let curves = string_list(sec, "curves");
         if curves.len() > 1000 {
             return Err(bad(cmd, "at most 1000 curves a section"));
         }
         let profiles = if sec.get("profiles").is_some() { Some(profiles(sec, cmd)?) } else { None };
-        sections.push(solidcraft_doc::SheetSection { sketch: SketchId(sketch), profiles, curves });
+        sections.push(solidcraft_doc::SheetSection { sketch: SketchId(sketch), profiles, curves, body: None, edges: Vec::new() });
     }
-    add_feature(s, p, FeatureKind::SurfaceLoft { sections })
+    let continuity = match p.get("continuity") {
+        None => [Continuity::G0, Continuity::G0],
+        Some(v) => {
+            let list = v.as_array().filter(|a| a.len() == 2).ok_or_else(|| bad(cmd, "`continuity` must be two words, one per end"))?;
+            let word = |x: Option<&Value>| -> Result<Continuity> {
+                x.and_then(Value::as_str).and_then(Continuity::parse).ok_or_else(|| bad(cmd, "`continuity` entries must be g0, g1, g2 or g3"))
+            };
+            [word(list.first())?, word(list.get(1))?]
+        }
+    };
+    let crown = match p.get("crown") {
+        None | Some(Value::Null) => [0.0, 0.0],
+        Some(v) => {
+            let list = v.as_array().filter(|a| a.len() == 2).ok_or_else(|| bad(cmd, "`crown` must be two numbers, one per end"))?;
+            let one = |x: Option<&Value>| -> Result<f64> {
+                x.and_then(Value::as_f64)
+                    .filter(|x| x.is_finite() && (-0.9..=3.0).contains(x))
+                    .ok_or_else(|| bad(cmd, "each `crown` entry must be between -0.9 (flattest) and 3 (fullest)"))
+            };
+            [one(list.first())?, one(list.get(1))?]
+        }
+    };
+    add_feature(s, p, FeatureKind::SurfaceLoft { sections, continuity, crown })
 }
 
 fn offset(s: &mut Session, p: &Value) -> Result<Value> {
@@ -1212,7 +1266,7 @@ mod tests {
     /// as it was.
     #[test]
     fn planned_commands_refuse_and_leave_the_design_alone() {
-        let planned = ["surface.fillet", "inspect.continuity"];
+        let planned = ["surface.fillet"];
         let mut s = Session::default();
         run(&mut s, "solid.box", json!({"length": 10, "width": 10, "height": 10, "body_name": "B"}));
         let before = s.doc.features.len();
@@ -1587,5 +1641,69 @@ mod tests {
         assert!(s.execute("surface.fair", &json!({"body": "Shell", "strength": 2, "tolerance": 1.0})).is_err());
         assert!(s.execute("surface.fair", &json!({"body": "Shell", "iterations": 0, "tolerance": 1.0})).is_err());
         assert!(s.execute("surface.fair", &json!({"body": "Shell", "tolerance": 0})).is_err());
+    }
+
+    /// A loft through three sections whose first and last are edge chains of two boxes, with
+    /// `continuity: ["g1","g1"]`: it leaves each box's top face tangentially (the run direction
+    /// lies in that face) and passes through the sketch between them.
+    #[test]
+    fn surface_loft_leaves_a_box_face_tangentially() {
+        let mut s = Session::default();
+        run(&mut s, "solid.box", json!({"corner": [0, 0, 0], "length": 20, "width": 20, "height": 10, "body_name": "Low"}));
+        run(&mut s, "solid.box", json!({"corner": [40, 0, 0], "length": 20, "width": 20, "height": 10, "body_name": "High"}));
+        run(&mut s, "construct.plane.offset", json!({"base": "YZ", "offset": 30, "name": "Mid"}));
+        run(&mut s, "sketch.create", json!({"plane": "Mid", "name": "Bump"}));
+        run(&mut s, "sketch.line", json!({"points": [[0, 14], [20, 14]], "ids": ["b"]}));
+        run(&mut s, "sketch.finish", json!({}));
+        run(
+            &mut s,
+            "surface.loft",
+            json!({
+                "sections": [
+                    {"body": "Low", "edges": [[20, 5, 10], [20, 15, 10]]},
+                    {"sketch": "Bump", "curves": ["b"]},
+                    {"body": "High", "edges": [[40, 5, 10], [40, 15, 10]]}
+                ],
+                "continuity": ["g1", "g1"],
+                "crown": [0, 0],
+                "body_name": "Blend"
+            }),
+        );
+        let body = s.world_state().body("Blend").unwrap().body.clone();
+        // A fine grid in the run direction: the seams sit at u = 0, 1/2 and 1, and the first step
+        // off each one is the tangent there (a thousandth of the run, so it is the tangent).
+        let grid = solidcraft_kernel::sample_grid(&body, 1001, 9).unwrap();
+        // The ends lie on the two boxes' top faces, and the sketch is met exactly between them.
+        for p in &grid[0] {
+            assert!((p.z - 10.0).abs() < 1e-9 && (p.x - 20.0).abs() < 1e-9, "the first seam is the box edge: {p:?}");
+        }
+        for p in &grid[1000] {
+            assert!((p.z - 10.0).abs() < 1e-9 && (p.x - 40.0).abs() < 1e-9, "the last seam is the box edge: {p:?}");
+        }
+        for p in &grid[500] {
+            assert!((p.z - 14.0).abs() < 1e-9 && (p.x - 30.0).abs() < 1e-9, "the blend meets the sketch: {p:?}");
+        }
+        // The seam leaves along the box's top face: the run direction the blend is given is what
+        // the face holds, so the tangent there is horizontal and along the run. (The step the grid
+        // takes is a thousandth of the run, and a chord over that step carries an O(h²) bias of
+        // about 0.011 here, so 1e-2 on the rise off the face is what the grid can measure; the
+        // kernel's own tests pin the tangent to the frame's leave direction exactly.)
+        for j in [0usize, 4, 8] {
+            let d = (grid[1][j] - grid[0][j]).normalized().unwrap();
+            assert!(d.z.abs() < 2e-2 && d.x > 0.999, "the blend leaves the low box's top face: {d:?}");
+            let d = (grid[1000][j] - grid[999][j]).normalized().unwrap();
+            assert!(d.z.abs() < 2e-2 && d.x > 0.999, "the blend arrives along the high box's top face: {d:?}");
+        }
+        // Hostile parameters are refused, never panicking.
+        let bad = [
+            json!({"sections": [{"body": "Low", "edges": [[20, 5, 10], [20, 15, 10]]}, {"sketch": "Bump", "curves": ["b"]}], "continuity": ["g1"]}),
+            json!({"sections": [{"body": "Low", "edges": []}, {"sketch": "Bump", "curves": ["b"]}], "continuity": ["g1", "g1"]}),
+            json!({"sections": [{"body": "Low", "edges": [[20, 5, 10]], "sketch": "Bump"}, {"sketch": "Bump", "curves": ["b"]}]}),
+            json!({"sections": [{"sketch": "Bump", "curves": ["b"]}, {"sketch": "Bump", "curves": ["b"]}], "crown": [5, 0]}),
+            json!({"sections": [{"sketch": "Bump", "curves": ["b"]}, {"sketch": "Bump", "curves": ["b"]}], "continuity": ["g9", "g1"]}),
+        ];
+        for p in bad {
+            assert!(s.execute("surface.loft", &p).is_err(), "hostile loft params: {p}");
+        }
     }
 }

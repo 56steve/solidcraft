@@ -45,10 +45,15 @@ to the same user installation:
 
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak remote-add --user --if-not-exists solidcraft https://bherbruck.github.io/solidcraft/flatpak/solidcraft.flatpakrepo
+flatpak remote-add --user --if-not-exists solidcraft https://docs.solidcraft.io/flatpak/solidcraft.flatpakrepo
 flatpak install --user solidcraft ai.storyteller.solidcraft
 flatpak run ai.storyteller.solidcraft
 ```
+
+A SolidCraft remote added before the project moved to `docs.solidcraft.io` (from
+`bherbruck.github.io`) no longer finds updates. Point it at the new address, then update:
+`flatpak remote-modify --user --url=https://docs.solidcraft.io/flatpak/repo/ solidcraft` and
+`flatpak update --user`.
 
 Releases up to 0.7 used the application ID `ai.storyteller.solvecraft`. If you installed one
 of those from the SolidCraft remote, `flatpak update --user` reports it as end-of-life and offers
@@ -171,6 +176,7 @@ cargo run --release -p solidcraft-cli -- run examples/bracket.json --out bracket
 cargo run --release -p solidcraft-cli -- eval examples/bracket.json     # volume, area, faces…
 cargo run --release -p solidcraft-cli -- snapshot examples/bracket.json --out bracket.png
 cargo run --release -p solidcraft-cli -- exec solid.box '{"length": 20, "width": 10, "height": 5}'
+cargo run --release -p solidcraft-cli -- run mechanism.json --in arm.solidcraft  # with a motion.export_animation step: a GIF
 ```
 
 A script is a list of commands:
@@ -210,6 +216,17 @@ depending on its settings, and strict JSON readers such as Python's `json.load` 
 ```sh
 cargo run --release -p solidcraft-cli -- run examples/bracket.json --results --json-out results.json
 cargo run --release -p solidcraft-cli -- eval examples/bracket.json --json-out measures.json
+```
+
+To find the slow steps of a script, `--timings` prints how long each command took instead of
+the measurement: `{"timings": [{"index", "command", "ms"}], "total_ms"}`, with `index` counted
+from 0. `--profile` adds each command's `profile: {"boolean_ms", "tessellate_ms", "other_ms"}`,
+its wall time in the kernel's booleans, in tessellation and in everything else. With
+`--results` as well, the results go in the same object as `results`; `--results` alone still
+prints a plain array.
+
+```sh
+cargo run --release -p solidcraft-cli -- run examples/bracket.json --profile
 ```
 
 A design's history turns into a script that rebuilds it, which makes a bug that only shows
