@@ -45,6 +45,10 @@ on:
   # only (other labels are skipped, see the top of this file).
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+    # A pull request that only edits translation catalogs runs no CI: a reviewer checks it with
+    # scripts/ci/check-locales.py (the i18n placeholder test, without a build). Main still
+    # tests every catalog after the merge.
+    paths-ignore: ["assets/locales/**"]
   # The merge queue: each queued group runs the full suite before it lands on main.
   merge_group:
   push:
