@@ -12,8 +12,13 @@
 # nightly always run them. Only main saves the build caches; pull requests restore them.
 # The merge queue runs the full suite on exactly the commit it then puts on main, so a push to
 # main that a passing merge-queue run already tested runs only the repository checks; a push
-# that skipped the queue still runs everything. Pull requests run the reference tests when the
-# command line (or anything it depends on) changes, and doc tests for the affected packages.
+# that skipped the queue still runs everything. The doc tests and the reference tests run on main,
+# the merge queue, the nightly run and Run workflow, not on pull requests: they almost never
+# caught anything there that the other checks missed. On a pull request the test build and the
+# test shards wait for the format and repository checks and Clippy, so a PR that fails those
+# cheap checks never holds a runner for the expensive ones. Elsewhere (main, the merge queue,
+# the nightly run) they start at once, as before: the self-hosted shards are a job of their own
+# (`tests-local`) and the nightly test build is `build-tests`, so neither waits for Clippy.
 # Heavy checks wait for review: a pull request without the `approved-for-ci` label runs only
 # Select checks, the format and repository checks and a quick compile. Adding the label (after
 # review) runs everything above, and every later push to the PR does too. Pushes to main, merge
@@ -191,17 +196,13 @@ jobs:
               case " $packages " in *" solidcraft-engine "*) ;; *) packages="$packages solidcraft-engine" ;; esac
             fi
           fi
-          # The reference tests replay recipes through solidcraft-cli: needed when it, or anything
-          # it depends on, is selected.
+          # The reference tests replay recipes through solidcraft-cli.
           oracle=$native
-          if [ "$EVENT_NAME" = pull_request ] && [ "$full" != true ]; then
-            case " $packages " in *" solidcraft-cli "*) ;; *) oracle=false ;; esac
-          fi
           # The pull request fast lane: Windows and the reference tests run on main (and the nightly),
           # not on every pull request push; a break there is fixed forward on main.
           if [ "$EVENT_NAME" = pull_request ]; then windows=false; oracle=false; fi
           # Until a maintainer adds approved-for-ci, a pull request gets a quick compile instead of
-          # Clippy, the tests, the doc tests and the goldens.
+          # Clippy, the tests and the goldens.
           quick=false
           if [ "$EVENT_NAME" = pull_request ] && [ "$APPROVED" != true ]; then
             quick=$native
@@ -316,17 +317,18 @@ jobs:
     name: Build tests
     needs: changes
     # The self-hosted shards (main and the merge queue) build from their warm build directories
-    # instead: downloading the 3 GB archive took them longer than building.
-    if: needs.changes.outputs.native == 'true' && needs.changes.outputs.local != 'true'
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 'self-hosted-untrusted' || 'ubuntu-24.04' }}
+    # instead: downloading the 3 GB archive took them longer than building. Pull requests use
+    # build-tests-pr, which waits for the cheap checks.
+    if: github.event_name != 'pull_request' && needs.changes.outputs.native == 'true' && needs.changes.outputs.local != 'true'
+    runs-on: &build-tests-runner ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 'self-hosted-untrusted' || 'ubuntu-24.04' }}
     # Fork builds compile inside gVisor on shared boxes; give them room to finish and upload.
-    timeout-minutes: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 90 || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 60 || 45 }}
-    env:
+    timeout-minutes: &build-tests-timeout ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 90 || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 60 || 45 }}
+    env: &build-tests-env
       CARGO_INCREMENTAL: "0"
       RUSTC_WRAPPER: sccache
       SCCACHE_GHA_ENABLED: "true"
       SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
-    steps:
+    steps: &build-tests-steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Size parallel compiles to the job's memory
         run: scripts/ci/build-jobs.sh
@@ -361,24 +363,36 @@ jobs:
         if: always()
         run: sccache --show-stats
 
+  # The same build for a pull request, once the format and repository checks and Clippy pass: a
+  # pull request that fails them gets its answer without waiting for (and paying for) the tests.
+  build-tests-pr:
+    name: Build tests
+    needs: [changes, checks, clippy]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.native == 'true'
+    runs-on: *build-tests-runner
+    timeout-minutes: *build-tests-timeout
+    env: *build-tests-env
+    steps: *build-tests-steps
+
   tests:
     name: Native Linux tests (${{ matrix.shard }}/4)
-    needs: [changes, build-tests]
-    if: ${{ !cancelled() && needs.changes.outputs.native == 'true' && (needs.changes.outputs.local == 'true' || needs.build-tests.result == 'success') }}
-    runs-on: ${{ needs.changes.outputs.local == 'true' && 'self-hosted-fast' || ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 'self-hosted-untrusted' || 'ubuntu-24.04') }}
+    # GitHub's runners: the shards run the archive that build-tests (or build-tests-pr) made.
+    needs: [changes, build-tests, build-tests-pr]
+    if: ${{ !cancelled() && needs.changes.outputs.native == 'true' && needs.changes.outputs.local != 'true' && (needs.build-tests.result == 'success' || needs.build-tests-pr.result == 'success') }}
+    runs-on: &tests-runner ${{ needs.changes.outputs.local == 'true' && 'self-hosted-fast' || ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (endsWith(format('{0}', github.event.pull_request.number), '7') || endsWith(format('{0}', github.event.pull_request.number), '8') || endsWith(format('{0}', github.event.pull_request.number), '9'))) && 'self-hosted-untrusted' || 'ubuntu-24.04') }}
     timeout-minutes: 60
-    strategy:
+    strategy: &tests-strategy
       fail-fast: false
       matrix:
         # Pull requests test their affected crates in 2 shards; main and the nightly use 4.
         shard: ${{ fromJSON(github.event_name == 'pull_request' && '[1, 2]' || '[1, 2, 3, 4]') }}
-    env:
+    env: &tests-env
       # Pictures (snapshots, screenshots, ui.render, the viewport's offscreen tests) are drawn on
       # the GPU. The runner has none: Mesa's lavapipe (software Vulkan) draws them, and a test that
       # would skip for want of an adapter fails instead.
       SOLIDCRAFT_GPU: software
       SOLIDCRAFT_REQUIRE_GPU: "1"
-    steps:
+    steps: &tests-steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install a software Vulkan driver (lavapipe)
         # Preinstalled on the self-hosted runner, which has no sudo.
@@ -455,6 +469,18 @@ jobs:
           name: junit-${{ matrix.shard }}
           path: ${{ env.CARGO_TARGET_DIR || 'target' }}/nextest/ci/junit.xml
           retention-days: 7
+
+  # The self-hosted shards (main and the merge queue): the same steps, without waiting for a test
+  # build or for Clippy, so they start as soon as Select checks is done.
+  tests-local:
+    name: Native Linux tests (${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.native == 'true' && needs.changes.outputs.local == 'true'
+    runs-on: *tests-runner
+    timeout-minutes: 60
+    strategy: *tests-strategy
+    env: *tests-env
+    steps: *tests-steps
 
   action-matrix:
     # Every ordinary action on every face, edge, vertex and body of the design corpus, against
@@ -551,7 +577,8 @@ jobs:
   doc-tests:
     name: Doc tests
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    # Not on pull requests (see the top of this file).
+    if: github.event_name != 'pull_request' && needs.changes.outputs.native == 'true'
     runs-on: ${{ needs.changes.outputs.local == 'true' && 'self-hosted-fast' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     env:
@@ -584,8 +611,8 @@ jobs:
           FULL: ${{ needs.changes.outputs.full }}
           PACKAGES: ${{ needs.changes.outputs.packages }}
         run: |
-          # Pull requests test the affected packages that have a library (only libraries have doc
-          # tests); everything else, the whole workspace.
+          # A selection (only pull requests make one; they skip this job now) tests the affected
+          # packages that have a library (only libraries have doc tests); otherwise the workspace.
           scope=(--workspace)
           if [ "$FULL" != true ]; then
             scope=()
@@ -704,12 +731,13 @@ jobs:
     # On the skipped run another label starts, this job is named differently, so that skipped job
     # can never stand in for the required `ci` check of the pull request's real run.
     name: ${{ github.event.action == 'labeled' && github.event.label.name != 'approved-for-ci' && 'ci (ignored label)' || 'ci' }}
-    needs: [changes, checks, quick-compile, clippy, build-tests, tests, doc-tests, oracle, windows-fxc, windows-startup]
+    needs: [changes, checks, quick-compile, clippy, build-tests, build-tests-pr, tests, tests-local, doc-tests, oracle, windows-fxc, windows-startup]
     if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event.action != 'labeled' || github.event.label.name == 'approved-for-ci')
     runs-on: ${{ needs.changes.outputs.local == 'true' && 'self-hosted-light' || 'ubuntu-24.04' }}
     steps:
       - name: Verify required checks
         env:
+          EVENT_NAME: ${{ github.event_name }}
           CHANGES: ${{ needs.changes.result }}
           CHECKS: ${{ needs.checks.result }}
           NATIVE: ${{ needs.changes.outputs.native }}
@@ -720,7 +748,9 @@ jobs:
           ORACLE_RUN: ${{ needs.changes.outputs.oracle }}
           CLIPPY: ${{ needs.clippy.result }}
           BUILD: ${{ needs.build-tests.result }}
+          BUILD_PR: ${{ needs.build-tests-pr.result }}
           TESTS: ${{ needs.tests.result }}
+          TESTS_LOCAL: ${{ needs.tests-local.result }}
           DOCS: ${{ needs.doc-tests.result }}
           ORACLE: ${{ needs.oracle.result }}
           WINDOWS_FXC: ${{ needs.windows-fxc.result }}
@@ -734,10 +764,18 @@ jobs:
           fi
           if [ "$NATIVE" = true ]; then
             test "$CLIPPY" = success
-            # The self-hosted test shards build their own tests (no Build tests job there).
-            [ "$BUILD" = success ] || { [ "$LOCAL" = true ] && [ "$BUILD" = skipped ]; }
-            test "$TESTS" = success
-            test "$DOCS" = success
+            if [ "$LOCAL" = true ]; then
+              # The self-hosted test shards build their own tests (no Build tests job there).
+              test "$TESTS_LOCAL" = success
+            else
+              # A pull request builds in build-tests-pr, everything else in build-tests.
+              [ "$BUILD" = success ] || [ "$BUILD_PR" = success ]
+              test "$TESTS" = success
+            fi
+            # Pull requests skip the doc tests.
+            if [ "$EVENT_NAME" != pull_request ]; then
+              test "$DOCS" = success
+            fi
           fi
           if [ "$ORACLE_RUN" = true ]; then
             test "$ORACLE" = success
