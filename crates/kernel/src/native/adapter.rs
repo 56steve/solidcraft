@@ -1,11 +1,9 @@
 //! The truck adapter. Persisted data belongs to solidcraft_geom::brep, never truck.
 use super::{Result, invalid};
-use mt::{InnerSpace, Invertible, Transformed};
+use mt::Invertible;
 use solidcraft_geom::brep as b;
 use truck_modeling as mt;
-use truck_topology::compress as t;
 
-type Packed = t::CompressedSolid<mt::Point3, mt::Curve, mt::Surface>;
 #[path = "analytic.rs"]
 mod analytic;
 use analytic::{arc, full_turn, load_analytic, revolved};
@@ -137,52 +135,50 @@ pub(super) fn encode(solid: &mt::Solid) -> Result<b::Brep> {
 pub(super) fn decode(body: b::Brep) -> Result<mt::Solid> {
     body.validate().map_err(invalid)?;
     compatible(&body)?;
-    if body.shells.iter().flat_map(|s| &s.edges).any(|e| e.vertices[0] == e.vertices[1]) {
-        return Err(invalid("closed single-vertex edges are unsupported by this adapter"));
-    }
-    let packed = Packed {
-        boundaries: body
-            .shells
-            .into_iter()
-            .map(|s| {
-                Ok(t::CompressedShell {
-                    vertices: s.vertices.into_iter().map(p).collect(),
-                    edges: s
-                        .edges
-                        .into_iter()
-                        .map(|e| Ok(t::CompressedEdge { vertices: (e.vertices[0] as usize, e.vertices[1] as usize), curve: load_curve(e.curve)? }))
-                        .collect::<Result<_>>()?,
-                    faces: s
-                        .faces
-                        .into_iter()
-                        .map(|f| {
-                            let mut loops = f.loops;
-                            if !f.forward {
-                                for wire in &mut loops {
-                                    reverse_wire(wire);
-                                }
-                            }
-                            Ok(t::CompressedFace {
-                                boundaries: loops
-                                    .into_iter()
-                                    .map(|w| {
-                                        w.into_iter().map(|e| t::CompressedEdgeIndex { index: e.edge as usize, orientation: e.forward }).collect()
-                                    })
-                                    .collect(),
-                                orientation: f.forward,
-                                surface: load_surface(f.surface)?,
-                            })
-                        })
-                        .collect::<Result<_>>()?,
-                })
-            })
-            .collect::<Result<_>>()?,
-    };
-    let shells = packed.boundaries.into_iter().map(mt::Shell::extract).collect::<std::result::Result<Vec<_>, _>>().map_err(invalid)?;
+    let shells = body.shells.into_iter().map(shell).collect::<Result<Vec<_>>>()?;
     if shells.iter().any(|s| s.shell_condition() == mt::ShellCondition::Irregular) {
         return Err(invalid("non-manifold shell"));
     }
     Ok(mt::Solid::new_unchecked(shells))
+}
+/// A shell's topology as recorded, references already checked: built as the kernel built it,
+/// without truck's checks for wires that touch themselves (a seam edge used twice, a closed edge
+/// on one vertex), which imported and modelled faces have.
+fn shell(s: b::Shell) -> Result<mt::Shell> {
+    let vertices: Vec<mt::Vertex> = s.vertices.into_iter().map(|v| mt::Vertex::new(p(v))).collect();
+    let vertex = |i: u32| vertices.get(i as usize).ok_or_else(|| invalid("edge vertices"));
+    let edges = s
+        .edges
+        .into_iter()
+        .map(|e| Ok(mt::Edge::new_unchecked(vertex(e.vertices[0])?, vertex(e.vertices[1])?, load_curve(e.curve)?)))
+        .collect::<Result<Vec<_>>>()?;
+    s.faces
+        .into_iter()
+        .map(|f| {
+            let mut loops = f.loops;
+            if !f.forward {
+                for wire in &mut loops {
+                    reverse_wire(wire);
+                }
+            }
+            let wires = loops
+                .into_iter()
+                .map(|w| {
+                    w.into_iter()
+                        .map(|u| {
+                            let e = edges.get(u.edge as usize).ok_or_else(|| invalid("edge reference"))?;
+                            Ok(if u.forward { e.clone() } else { e.inverse() })
+                        })
+                        .collect::<Result<mt::Wire>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let mut face = mt::Face::new_unchecked(wires, load_surface(f.surface)?);
+            if !f.forward {
+                face.invert();
+            }
+            Ok(face)
+        })
+        .collect()
 }
 fn reverse_wire(wire: &mut [b::EdgeUse]) {
     wire.reverse();
@@ -334,7 +330,7 @@ fn load_surface(s: b::Surface) -> Result<mt::Surface> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mt::{BoundedCurve, ParametricCurve};
+    use mt::{BoundedCurve, InnerSpace, ParametricCurve, Transformed};
 
     #[test]
     fn refuses_domain_or_axis_changes_instead_of_approximating() {
