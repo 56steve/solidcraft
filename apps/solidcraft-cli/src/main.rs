@@ -650,9 +650,19 @@ pub(crate) fn cmd_bench_open(args: &[String]) -> Result<(), String> {
             let bytes = std::fs::read(out).map_err(|e| format!("{out}: {e}"))?;
             let t = std::time::Instant::now();
             let cached = solidcraft_engine::io::read_design_geometry(&bytes).map(|m| m.bodies.len());
+            let read_ms = t.elapsed().as_secs_f64() * 1000.0;
+            // Why bodies could not be kept exactly, when the cache was left out.
+            let mut refused = std::collections::BTreeMap::<String, usize>::new();
+            if cached.is_none() {
+                for b in &s.model.state().bodies {
+                    if let Err(e) = solidcraft_engine::kernel::encode_native_body(&b.body) {
+                        *refused.entry(e.to_string()).or_default() += 1;
+                    }
+                }
+            }
             println!(
                 "{}",
-                json!({"step": "save", "ms": save_ms, "bytes": bytes.len(), "cached_bodies": cached, "cache_read_ms": t.elapsed().as_secs_f64() * 1000.0})
+                json!({"step": "save", "ms": save_ms, "bytes": bytes.len(), "cached_bodies": cached, "cache_read_ms": read_ms, "refused": refused})
             );
             s
         }
