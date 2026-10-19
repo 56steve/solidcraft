@@ -639,11 +639,17 @@ pub(crate) fn cmd_bench_open(args: &[String]) -> Result<(), String> {
         json!({"step": "mesh", "ms": t.elapsed().as_secs_f64() * 1000.0, "place_ms": place_ms, "bodies": st.bodies.len(), "triangles": triangles})
     );
     let flag = |name: &str| args.iter().position(|a| a == name);
-    // `--save PATH`: save the opened design as the app does (with its model cache), then read
-    // the cache back.
+    // `--save PATH`: save the opened design without its model cache (to PATH.plain.solidcraft) and
+    // as the app does, with it, then read the cache back.
     let s = match flag("--save").and_then(|i| args.get(i + 1)) {
         Some(out) => {
             let mut s = s;
+            // Without the cache first, for comparison.
+            let plain = format!("{out}.plain.solidcraft");
+            let t = std::time::Instant::now();
+            s.execute("file.save_as", &json!({"path": plain, "cache": false})).map_err(|e| e.to_string())?;
+            let plain_ms = t.elapsed().as_secs_f64() * 1000.0;
+            let plain_bytes = std::fs::metadata(&plain).map(|m| m.len()).unwrap_or(0);
             let t = std::time::Instant::now();
             s.execute("file.save_as", &json!({"path": out})).map_err(|e| e.to_string())?;
             let save_ms = t.elapsed().as_secs_f64() * 1000.0;
@@ -662,7 +668,7 @@ pub(crate) fn cmd_bench_open(args: &[String]) -> Result<(), String> {
             }
             println!(
                 "{}",
-                json!({"step": "save", "ms": save_ms, "bytes": bytes.len(), "cached_bodies": cached, "cache_read_ms": read_ms, "refused": refused})
+                json!({"step": "save", "ms": save_ms, "bytes": bytes.len(), "plain_ms": plain_ms, "plain_bytes": plain_bytes, "cached_bodies": cached, "cache_read_ms": read_ms, "refused": refused})
             );
             s
         }
