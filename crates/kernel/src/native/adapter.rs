@@ -74,6 +74,7 @@ fn compatible_surface(s: &b::Surface) -> Result<()> {
             full_turn(angle)?;
             compatible_curve(profile)
         }
+        b::Surface::PlaneThrough { .. } => Ok(()),
         b::Surface::PlacedRevolution { profile, .. } => compatible_curve(profile),
         b::Surface::Cylinder { angle, .. } | b::Surface::Cone { angle, .. } => full_turn(angle),
         b::Surface::Sphere { longitude, .. } | b::Surface::Torus { longitude, .. } => full_turn(longitude),
@@ -218,10 +219,40 @@ fn save_curve(c: &mt::Curve, d: usize) -> Result<b::Curve> {
         }
     })
 }
+/// A plane as truck holds it: three points.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PlanePoints {
+    o: mt::Point3,
+    p: mt::Point3,
+    q: mt::Point3,
+}
+
+/// A revolution as truck holds it, built from its parts as they are (its constructors normalize
+/// the axis and compose the placement with the identity, either of which can round).
+#[derive(serde::Serialize)]
+struct PlacedRevolution {
+    entity: Revolved,
+    transform: mt::Matrix4,
+    orientation: bool,
+}
+#[derive(serde::Serialize)]
+struct Revolved {
+    curve: mt::Curve,
+    revolution: Axis,
+}
+#[derive(serde::Serialize)]
+struct Axis {
+    origin: mt::Point3,
+    axis: mt::Vector3,
+}
+
 fn save_surface(s: &mt::Surface, d: usize) -> Result<b::Surface> {
     depth(d)?;
     Ok(match s {
-        mt::Surface::Plane(s) => b::Surface::Plane { origin: point(s.origin()), u_axis: vector(s.u_axis()), v_axis: vector(s.v_axis()) },
+        mt::Surface::Plane(s) => {
+            let PlanePoints { o, p, q } = serde_json::from_value(serde_json::to_value(s).map_err(invalid)?).map_err(invalid)?;
+            b::Surface::PlaneThrough { origin: point(o), u_point: point(p), v_point: point(q) }
+        }
         mt::Surface::BSplineSurface(s) => b::Surface::Spline {
             u_knots: s.uknot_vec().iter().copied().collect(),
             v_knots: s.vknot_vec().iter().copied().collect(),
@@ -234,16 +265,10 @@ fn save_surface(s: &mt::Surface, d: usize) -> Result<b::Surface> {
         },
         mt::Surface::RevolutedCurve(s) => {
             let m = *s.transform();
-            let axis = s.entity().axis();
-            // Loading normalizes the axis and composes the matrix with the identity: refuse the
-            // rare record that would not come back as these very numbers.
-            if axis.normalize() != axis || m * mt::Matrix4::from_scale(1.) != m {
-                return Err(invalid("revolution cannot be reloaded exactly"));
-            }
             b::Surface::PlacedRevolution {
                 profile: Box::new(save_curve(s.entity().entity_curve(), d + 1)?),
                 origin: point(s.entity().origin()),
-                axis: vector(axis),
+                axis: vector(s.entity().axis()),
                 matrix: [m.x, m.y, m.z, m.w].map(vector4),
                 forward: s.orientation(),
             }
@@ -293,13 +318,14 @@ fn load_surface(s: b::Surface) -> Result<mt::Surface> {
             full_turn(&angle)?;
             revolved(load_curve(*profile)?, p(origin), v(axis), false)
         }
+        b::Surface::PlaneThrough { origin, u_point, v_point } => mt::Surface::Plane(mt::Plane::new(p(origin), p(u_point), p(v_point))),
         b::Surface::PlacedRevolution { profile, origin, axis, matrix: [x, y, z, w], forward } => {
-            let mut s = mt::Processor::new(mt::RevolutedCurve::by_revolution(load_curve(*profile)?, p(origin), v(axis)));
-            s.transform_by(mt::Matrix4::from_cols(v4(x), v4(y), v4(z), v4(w)));
-            if !forward {
-                s.invert();
-            }
-            mt::Surface::RevolutedCurve(s)
+            let placed = PlacedRevolution {
+                entity: Revolved { curve: load_curve(*profile)?, revolution: Axis { origin: p(origin), axis: v(axis) } },
+                transform: mt::Matrix4::from_cols(v4(x), v4(y), v4(z), v4(w)),
+                orientation: forward,
+            };
+            mt::Surface::RevolutedCurve(serde_json::from_value(serde_json::to_value(placed).map_err(invalid)?).map_err(invalid)?)
         }
         analytic => load_analytic(analytic)?,
     })

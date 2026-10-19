@@ -14,8 +14,11 @@ pub use preview::native_preview_mesh;
 // 01/02 were development-only prototypes; independent metadata records start at 03; 04 stores
 // procedural intersections and placed revolutions exactly, and the measured runtime values.
 const MAGIC: &[u8; 8] = b"SCBREP04";
-const MAX_BYTES: usize = 64 << 20;
-const MAX_ITEMS: usize = 100_000;
+// A body's own limits. A design's cache holds many bodies within the container's budgets, and
+// decoding is linear in the bytes, so one large part (an imported casting) fits.
+const MAX_BYTES: usize = 256 << 20;
+const MAX_ITEMS: usize = 1_000_000;
+const MAX_VALUES: usize = 20_000_000;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,7 +72,7 @@ pub fn encode_native_body(body: &Body) -> Result<Vec<u8>> {
         validate_topology(&saved)?;
         let value = serde_json::to_value(saved).map_err(invalid)?;
         validate_value(&value, 0)?;
-        if value_nodes(&value) > 2_000_000 {
+        if value_nodes(&value) > MAX_VALUES {
             return Err(invalid("value budget"));
         }
         let mut out = MAGIC.to_vec();
@@ -86,7 +89,7 @@ pub fn decode_native_body(bytes: &[u8]) -> Result<Body> {
     }
     guard("decode native B-rep", || {
         let mut input = bytes.get(8..).ok_or_else(|| invalid("header"))?;
-        let mut remaining = 2_000_000usize;
+        let mut remaining = MAX_VALUES;
         let value = binary::read(&mut input, 0, &mut remaining)?;
         if !input.is_empty() {
             return Err(invalid("trailing data"));

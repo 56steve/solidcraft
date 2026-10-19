@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub mod envelope;
 
 pub const VERSION: u32 = 3;
-pub const MAX_ITEMS: usize = 100_000;
+pub const MAX_ITEMS: usize = 1_000_000;
 const MAX_DEPTH: usize = 16;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -105,6 +105,13 @@ pub enum Surface {
         origin: [f64; 3],
         u_axis: [f64; 3],
         v_axis: [f64; 3],
+    },
+    /// The plane through three points, parameter (1, 0) at `u_point` and (0, 1) at `v_point`:
+    /// the points themselves, as its producer holds them (axes worked out from them would round).
+    PlaneThrough {
+        origin: [f64; 3],
+        u_point: [f64; 3],
+        v_point: [f64; 3],
     },
     Cylinder {
         frame: Frame,
@@ -300,6 +307,11 @@ fn surface(s: &Surface, depth: usize, budget: &mut Budget) -> Result<()> {
         Surface::Plane { origin, u_axis, v_axis } => {
             points(&[*origin, *u_axis, *v_axis], budget)?;
             require(vector(*u_axis).cross(vector(*v_axis)).len() > 1e-12, "degenerate plane")
+        }
+        Surface::PlaneThrough { origin, u_point, v_point } => {
+            points(&[*origin, *u_point, *v_point], budget)?;
+            let o = vector(*origin);
+            require((vector(*u_point) - o).cross(vector(*v_point) - o).len() > 1e-12, "degenerate plane")
         }
         Surface::Cylinder { frame: f, radius: r, angle: a, height } => {
             frame(f, budget)?;

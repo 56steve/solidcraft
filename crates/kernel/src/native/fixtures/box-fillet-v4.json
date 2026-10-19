@@ -556,20 +556,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
+                  30.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
+                  40.0,
                   0.0,
-                  -30.0,
                   0.0
                 ]
               }
@@ -597,18 +597,18 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   0.0,
                   0.0,
                   0.0
                 ],
-                "u_axis": [
+                "u_point": [
                   40.0,
                   0.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
                   0.0,
                   0.0,
                   10.0
@@ -638,19 +638,19 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   0.0,
                   0.0
                 ],
-                "u_axis": [
-                  0.0,
+                "u_point": [
+                  40.0,
                   30.0,
                   0.0
                 ],
-                "v_axis": [
-                  0.0,
+                "v_point": [
+                  40.0,
                   0.0,
                   10.0
                 ]
@@ -679,20 +679,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
+                  30.0,
                   0.0
                 ],
-                "v_axis": [
-                  0.0,
-                  0.0,
+                "v_point": [
+                  40.0,
+                  30.0,
                   10.0
                 ]
               }
@@ -720,20 +720,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   0.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
+                "u_point": [
                   0.0,
-                  -30.0,
+                  0.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
                   0.0,
-                  0.0,
+                  30.0,
                   10.0
                 ]
               }
@@ -761,21 +761,21 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   10.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
-                  0.0
+                  30.0,
+                  10.0
                 ],
-                "v_axis": [
+                "v_point": [
+                  40.0,
                   0.0,
-                  -30.0,
-                  0.0
+                  10.0
                 ]
               }
             }
@@ -1563,20 +1563,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
+                  30.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
+                  40.0,
                   0.0,
-                  -30.0,
                   0.0
                 ]
               }
@@ -1604,18 +1604,18 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   0.0,
                   0.0,
                   0.0
                 ],
-                "u_axis": [
+                "u_point": [
                   40.0,
                   0.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
                   0.0,
                   0.0,
                   10.0
@@ -1649,19 +1649,19 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   0.0,
                   0.0
                 ],
-                "u_axis": [
-                  0.0,
+                "u_point": [
+                  40.0,
                   30.0,
                   0.0
                 ],
-                "v_axis": [
-                  0.0,
+                "v_point": [
+                  40.0,
                   0.0,
                   10.0
                 ]
@@ -1690,20 +1690,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
+                  30.0,
                   0.0
                 ],
-                "v_axis": [
-                  0.0,
-                  0.0,
+                "v_point": [
+                  40.0,
+                  30.0,
                   10.0
                 ]
               }
@@ -1735,20 +1735,20 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   0.0,
                   30.0,
                   0.0
                 ],
-                "u_axis": [
+                "u_point": [
                   0.0,
-                  -30.0,
+                  0.0,
                   0.0
                 ],
-                "v_axis": [
+                "v_point": [
                   0.0,
-                  0.0,
+                  30.0,
                   10.0
                 ]
               }
@@ -1776,21 +1776,21 @@
                 ]
               ],
               "surface": {
-                "kind": "plane",
+                "kind": "plane_through",
                 "origin": [
                   40.0,
                   30.0,
                   10.0
                 ],
-                "u_axis": [
-                  -40.0,
+                "u_point": [
                   0.0,
-                  0.0
+                  30.0,
+                  10.0
                 ],
-                "v_axis": [
+                "v_point": [
+                  40.0,
                   0.0,
-                  -30.0,
-                  0.0
+                  10.0
                 ]
               }
             },
