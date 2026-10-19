@@ -121,6 +121,10 @@ being saved (`Model::is_current`). An active sketch, uncaptured moves, feature
 errors, mesh bodies or exceeded budgets leave the cache out; the design saves as
 before.
 
+Both entries are Deflate-compressed (level one) under either compression policy: the
+encoded bodies shrink about fourfold (an imported assembly) to tenfold (modelled parts),
+for a few tens of milliseconds.
+
 `cache/bodies.bin` holds every distinct body once, in
 [SolidCraft's native B-rep encoding](native-brep.md), as contiguous slices. The
 encoding is exact: a decoded body is the body that was saved, number for number

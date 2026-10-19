@@ -185,8 +185,10 @@ pub fn write_design_container_with_thumbnail(
             <= MAX_DESIGN_BYTES
     {
         let [manifest_entry, payload_entry] = native_cache::ENTRIES;
-        writer.part(manifest_entry, &manifest, false)?;
-        writer.part(payload_entry, &data, compression == DesignCompression::Compact)?;
+        // Deflated whatever the policy: the encoded bodies shrink about fourfold to tenfold, faster
+        // than the extra bytes would be written and read.
+        writer.part(manifest_entry, &manifest, true)?;
+        writer.part(payload_entry, &data, true)?;
     }
     if let Some((manifest, data)) = preview.and_then(|p| encode_preview(p, &metadata).ok())
         && writer.names.len().saturating_add(2) <= MAX_ENTRIES
