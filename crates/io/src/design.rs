@@ -127,6 +127,19 @@ pub fn write_design_container_with_thumbnail(
     geometry: Option<&solidcraft_doc::ModelState>,
     thumbnail: Option<&[u8]>,
 ) -> Result<Vec<u8>> {
+    write_container(doc, compression, preview, geometry, thumbnail, MAX_DESIGN_BYTES)
+}
+
+/// [`write_design_container_with_thumbnail`] within `budget` bytes for the optional caches (the
+/// container's budget; tests pass less).
+fn write_container(
+    doc: &Document,
+    compression: DesignCompression,
+    preview: Option<&DesignPreview>,
+    geometry: Option<&solidcraft_doc::ModelState>,
+    thumbnail: Option<&[u8]>,
+    budget: usize,
+) -> Result<Vec<u8>> {
     let mut writer = PackageWriter { zip: zip::ZipWriter::new(Cursor::new(Vec::new())), names: BTreeSet::new(), expanded: 0, resolved: 0 };
     let mut features = Vec::with_capacity(doc.features.len());
     for feature in &doc.features {
@@ -174,16 +187,23 @@ pub fn write_design_container_with_thumbnail(
     let metadata = serde_json::to_vec(&metadata).map_err(invalid)?;
     writer.part("document.json", &metadata, true)?;
     writer.part("container.json", &serde_json::to_vec(&json!({"format": VERSION})).map_err(invalid)?, false)?;
-    if let Some((manifest, data)) = geometry.and_then(|g| native_cache::encode_model(g, &metadata).ok())
-        && writer.names.len().saturating_add(2) <= MAX_ENTRIES
-        && writer
-            .expanded
-            .saturating_add(manifest.len())
-            .saturating_add(data.len())
-            .saturating_add(writer.names.len().saturating_mul(256))
-            .saturating_add(65_536)
-            <= MAX_DESIGN_BYTES
-    {
+    // The model cache is optional: one that does not fit the container is left out, never a
+    // failed save.
+    let cache = geometry.and_then(|g| native_cache::encode_model(g, &metadata).ok()).filter(|(manifest, data)| {
+        let fits = writer.names.len().saturating_add(2) <= MAX_ENTRIES
+            && writer
+                .expanded
+                .saturating_add(manifest.len())
+                .saturating_add(data.len())
+                .saturating_add(writer.names.len().saturating_mul(256))
+                .saturating_add(65_536)
+                <= budget;
+        if !fits {
+            log::info!("the model cache ({} MB) does not fit the design file: saved without it", (manifest.len() + data.len()) >> 20);
+        }
+        fits
+    });
+    if let Some((manifest, data)) = cache {
         let [manifest_entry, payload_entry] = native_cache::ENTRIES;
         // Deflated whatever the policy: the encoded bodies shrink about fourfold to tenfold, faster
         // than the extra bytes would be written and read.
@@ -198,7 +218,7 @@ pub fn write_design_container_with_thumbnail(
             .saturating_add(data.len())
             .saturating_add(writer.names.len().saturating_mul(256))
             .saturating_add(65_536)
-            <= MAX_DESIGN_BYTES
+            <= budget
     {
         writer.part("cache/preview.json", &manifest, false)?;
         writer.part("cache/preview.bin", &data, false)?;
@@ -763,6 +783,20 @@ mod tests {
         for (a, b) in state.bodies.iter().zip(&read.bodies) {
             assert_eq!(solidcraft_kernel::encode_native_body(&a.body).unwrap(), solidcraft_kernel::encode_native_body(&b.body).unwrap());
         }
+    }
+
+    /// A model cache that does not fit the design file is left out: the save succeeds, and the
+    /// design reads back as saved.
+    #[test]
+    fn a_model_cache_too_big_for_the_file_is_left_out_not_a_failed_save() {
+        let doc = document();
+        let bytes = write_container(&doc, DesignCompression::Fast, None, Some(&native_geometry()), None, 70_000).unwrap();
+        assert!(!parts(&bytes).contains_key("cache/model.json") && !parts(&bytes).contains_key("cache/bodies.bin"));
+        assert!(read_design_geometry(&bytes).is_none());
+        assert_eq!(crate::read_design(&bytes).unwrap().to_json(), doc.to_json());
+        // With room for it, the same model is kept.
+        let bytes = write_container(&doc, DesignCompression::Fast, None, Some(&native_geometry()), None, MAX_DESIGN_BYTES).unwrap();
+        assert!(read_design_geometry(&bytes).is_some());
     }
 
     #[test]
