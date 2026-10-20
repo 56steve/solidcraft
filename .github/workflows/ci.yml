@@ -427,44 +427,49 @@ jobs:
           # queue and the nightly run every seed.
           SLOW_SEEDS: 81|45|20|24|95|02|57|40|18|48|32|46|85|61|77|34|14
         run: |
-          # Pull requests skip the heavy tests (default-filter in .config/nextest.toml).
-          filter=()
+          # Pull requests skip the heavy tests (default-filter in .config/nextest.toml); `default()`
+          # below is that filter, so a pull request still runs only what it ran before.
+          base='default()'
           if [ "$EVENT_NAME" != pull_request ]; then
             # The boolean property tests draw new random inputs every run; they run only in the
             # nightly property-tests job, so a known kernel bug cannot turn main red at random.
-            filter=(--ignore-default-filter -E 'not (package(solidcraft-kernel) & binary(boolean_props))')
+            base='not (package(solidcraft-kernel) & binary(boolean_props))'
           elif [ "$GOLDENS" = true ]; then
             # A pull request that can change a robustness golden (tests/robustness/goldens.json)
             # also checks every seed but the slow ones, in the same run so they share its cores.
-            filter=(--ignore-default-filter -E "default() | (package(solidcraft-engine) & test(/^tests::robustness_goldens::/) & not test(/^tests::robustness_goldens::seed_($SLOW_SEEDS)\$/))")
+            base="default() | (package(solidcraft-engine) & test(/^tests::robustness_goldens::/) & not test(/^tests::robustness_goldens::seed_($SLOW_SEEDS)\$/))"
           fi
           junit=${CARGO_TARGET_DIR:-target}/nextest/ci/junit.xml
-          rm -f "$junit"
+          heavy_junit=${junit%.xml}-heavy.xml
+          rm -f "$junit" "$heavy_junit"
           # Extract into ./target: tests that run a built binary (env!("CARGO_BIN_EXE_*")) have
           # the build job's path, which is the same checkout path here.
           run=(cargo nextest run --archive-file tests.tar.zst --workspace-remap . --extract-to . --extract-overwrite)
-          status=0
-          if [ "$EVENT_NAME" != pull_request ]; then
-            # The slowest tests each get a shard of their own, so one shard does not carry several
-            # of them (they used to land together in shard 1, 20 minutes against 6). They run
-            # first, with the shard's cores to themselves; the rest is cut into slices as before.
-            # Times from the merge queue's junit files: seed_81 564 s, action_matrix_sample 363 s,
-            # atomic_commands 301 s, seed_45 249 s, the seam boundary test 169 s, clearance 143 s.
-            heavy_1='test(=tests::robustness_goldens::seed_81)'
-            heavy_2='(binary(action_matrix) & test(=action_matrix_sample)) | test(=tests::robustness_goldens::seed_57)'
-            heavy_3='binary(atomic_commands) | test(/::distances_are_exact_on_edges_and_curved_faces$/)'
-            heavy_4='test(=tests::robustness_goldens::seed_45) | test(=tests::robustness::a_boundary_found_across_a_seam_is_not_used)'
-            mine="heavy_$SHARD"
-            nobool='not (package(solidcraft-kernel) & binary(boolean_props))'
-            "${run[@]}" --profile ci --no-tests=pass --ignore-default-filter -E "($nobool) & (${!mine})" || status=1
-            "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass --ignore-default-filter \
-              -E "($nobool) & not (($heavy_1) | ($heavy_2) | ($heavy_3) | ($heavy_4))" || status=1
-          else
-            "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass "${filter[@]}" || status=1
+          # The slowest tests each get a shard of their own, so one shard does not carry several
+          # of them (they used to land together in shard 1, 20 minutes against 6). They run
+          # first, with the shard's cores to themselves; the rest is cut into slices as before.
+          # Times from the merge queue's junit files: seed_81 564 s, action_matrix_sample 363 s,
+          # atomic_commands 301 s, seed_45 249 s, the seam boundary test 169 s, clearance 143 s.
+          # Pull requests have two shards and skip most of these, so they take two sets each.
+          heavy_1='test(=tests::robustness_goldens::seed_81)'
+          heavy_2='(binary(action_matrix) & test(=action_matrix_sample)) | test(=tests::robustness_goldens::seed_57)'
+          heavy_3='binary(atomic_commands) | test(/::distances_are_exact_on_edges_and_curved_faces$/)'
+          heavy_4='test(=tests::robustness_goldens::seed_45) | test(=tests::robustness::a_boundary_found_across_a_seam_is_not_used)'
+          mine="heavy_$SHARD"
+          heavy_mine="${!mine}"
+          if [ "$SHARDS" = 2 ]; then
+            more="heavy_$((SHARD + 2))"
+            heavy_mine="($heavy_mine) | (${!more})"
           fi
+          status=0
+          "${run[@]}" --profile ci --no-tests=pass --ignore-default-filter -E "($base) & ($heavy_mine)" || status=1
+          # The second run would overwrite junit.xml; keep the heavy tests' beside it.
+          [ -f "$junit" ] && mv "$junit" "$heavy_junit"
+          "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass --ignore-default-filter \
+            -E "($base) & not (($heavy_1) | ($heavy_2) | ($heavy_3) | ($heavy_4))" || status=1
           if [ "$status" != 0 ]; then
             # A failed golden gets the hint to re-record it (junit.xml lists the failures).
-            if [ -f "$junit" ] && tr '\n' ' ' < "$junit" | grep -q '<testcase name="tests::robustness_goldens::[^"]*"[^>]*>[[:space:]]*<failure'; then
+            if cat "$junit" "$heavy_junit" 2>/dev/null | tr '\n' ' ' | grep -q '<testcase name="tests::robustness_goldens::[^"]*"[^>]*>[[:space:]]*<failure'; then
               echo "::error::A robustness golden changed. If the new result is intended, re-record it in this pull request and say why:"
               echo "::error::ROBUSTNESS_GOLDENS_BLESS=\"why it changed\" cargo test --profile ci -p solidcraft-engine --lib robustness_goldens::   (see docs/robustness.md)"
             fi
@@ -475,7 +480,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: junit-${{ matrix.shard }}
-          path: ${{ env.CARGO_TARGET_DIR || 'target' }}/nextest/ci/junit.xml
+          path: |
+            ${{ env.CARGO_TARGET_DIR || 'target' }}/nextest/ci/junit.xml
+            ${{ env.CARGO_TARGET_DIR || 'target' }}/nextest/ci/junit-heavy.xml
           retention-days: 7
 
   action-matrix:
