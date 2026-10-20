@@ -178,9 +178,12 @@ jobs:
             git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/ci-paths"
             while IFS= read -r -d '' path; do
               case "$path" in crates/kernel/*|vendor/truck-*) kernel=true ;; esac
-              # What can change a robustness golden: the kernel and the crates a design is built with.
+              # What a pull request re-checks the goldens for: the kernel, truck and the goldens
+              # themselves (a re-record is checked before it is queued). The goldens are frozen, so
+              # on any other change they would only re-check unchanged results; the merge queue,
+              # main and the nightly run every seed before anything lands.
               case "$path" in
-                crates/kernel/*|crates/engine/*|crates/doc/*|crates/sketch/*|crates/geom/*|vendor/truck-*|tests/robustness/*) goldens=true ;;
+                crates/kernel/*|vendor/truck-*|tests/robustness/*) goldens=true ;;
               esac
               # What the Windows D3D12 jobs exercise: the GPU crate and its shaders, the app and
               # its startup, the viewport's wgpu glue, the vendored egui-wgpu, their scripts.
@@ -430,6 +433,11 @@ jobs:
           # Pull requests skip the heavy tests (default-filter in .config/nextest.toml); `default()`
           # below is that filter, so a pull request still runs only what it ran before.
           base='default()'
+          if [ "$EVENT_NAME" = pull_request ]; then
+            # The action matrix sample (about 6 minutes on all cores) runs in the merge queue, on
+            # main and nightly, not on every pull request push.
+            base='default() & not (binary(action_matrix) & test(=action_matrix_sample))'
+          fi
           if [ "$EVENT_NAME" != pull_request ]; then
             # The boolean property tests draw new random inputs every run; they run only in the
             # nightly property-tests job, so a known kernel bug cannot turn main red at random.
@@ -437,7 +445,7 @@ jobs:
           elif [ "$GOLDENS" = true ]; then
             # A pull request that can change a robustness golden (tests/robustness/goldens.json)
             # also checks every seed but the slow ones, in the same run so they share its cores.
-            base="default() | (package(solidcraft-engine) & test(/^tests::robustness_goldens::/) & not test(/^tests::robustness_goldens::seed_($SLOW_SEEDS)\$/))"
+            base="(default() & not (binary(action_matrix) & test(=action_matrix_sample))) | (package(solidcraft-engine) & test(/^tests::robustness_goldens::/) & not test(/^tests::robustness_goldens::seed_($SLOW_SEEDS)\$/))"
           fi
           junit=${CARGO_TARGET_DIR:-target}/nextest/ci/junit.xml
           heavy_junit=${junit%.xml}-heavy.xml
