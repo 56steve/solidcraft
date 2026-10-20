@@ -443,7 +443,26 @@ jobs:
           # Extract into ./target: tests that run a built binary (env!("CARGO_BIN_EXE_*")) have
           # the build job's path, which is the same checkout path here.
           run=(cargo nextest run --archive-file tests.tar.zst --workspace-remap . --extract-to . --extract-overwrite)
-          if ! "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass "${filter[@]}"; then
+          status=0
+          if [ "$EVENT_NAME" != pull_request ]; then
+            # The slowest tests each get a shard of their own, so one shard does not carry several
+            # of them (they used to land together in shard 1, 20 minutes against 6). They run
+            # first, with the shard's cores to themselves; the rest is cut into slices as before.
+            # Times from the merge queue's junit files: seed_81 564 s, action_matrix_sample 363 s,
+            # atomic_commands 301 s, seed_45 249 s, the seam boundary test 169 s, clearance 143 s.
+            heavy_1='test(=tests::robustness_goldens::seed_81)'
+            heavy_2='(binary(action_matrix) & test(=action_matrix_sample)) | test(=tests::robustness_goldens::seed_57)'
+            heavy_3='binary(atomic_commands) | test(/::distances_are_exact_on_edges_and_curved_faces$/)'
+            heavy_4='test(=tests::robustness_goldens::seed_45) | test(=tests::robustness::a_boundary_found_across_a_seam_is_not_used)'
+            mine="heavy_$SHARD"
+            nobool='not (package(solidcraft-kernel) & binary(boolean_props))'
+            "${run[@]}" --profile ci --no-tests=pass --ignore-default-filter -E "($nobool) & (${!mine})" || status=1
+            "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass --ignore-default-filter \
+              -E "($nobool) & not (($heavy_1) | ($heavy_2) | ($heavy_3) | ($heavy_4))" || status=1
+          else
+            "${run[@]}" --profile ci --partition "slice:$SHARD/$SHARDS" --no-tests=pass "${filter[@]}" || status=1
+          fi
+          if [ "$status" != 0 ]; then
             # A failed golden gets the hint to re-record it (junit.xml lists the failures).
             if [ -f "$junit" ] && tr '\n' ' ' < "$junit" | grep -q '<testcase name="tests::robustness_goldens::[^"]*"[^>]*>[[:space:]]*<failure'; then
               echo "::error::A robustness golden changed. If the new result is intended, re-record it in this pull request and say why:"
