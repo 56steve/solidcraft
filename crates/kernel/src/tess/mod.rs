@@ -259,7 +259,13 @@ fn plan_face(
             luv.push(q);
             prev = Some(q);
         }
-        projected.push(seam::Loop { uv: luv, pts: pts.clone() });
+        let mut l = seam::Loop { uv: luv, pts: pts.clone() };
+        for (d, per) in dom.period.iter().enumerate() {
+            if let Some(per) = per {
+                seam::close_through_pole(s, &mut l, d, *per);
+            }
+        }
+        projected.push(l);
     }
     // A loop that winds around a periodic direction does not close in (u, v): the face is cut
     // along a parameter line into one period (a seamless cylinder face, a helical trim).
