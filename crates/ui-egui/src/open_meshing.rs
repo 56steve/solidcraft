@@ -182,7 +182,7 @@ pub(crate) fn tick(app: &mut SolveApp, ctx: &egui::Context) {
     }
     let Some(m) = app.open_meshing.as_ref().filter(|m| !m.complete) else { return };
     if m.finished() && m.shown.as_ref().is_some_and(|(n, _)| *n >= m.world.bodies.len()) {
-        let (framed, remember, began) = (m.framed, m.remember, m.began);
+        let (framed, remember, began) = (m.framed, m.remember.clone(), m.began);
         if let Some(m) = app.open_meshing.as_mut() {
             m.complete = true;
         }
@@ -194,14 +194,9 @@ pub(crate) fn tick(app: &mut SolveApp, ctx: &egui::Context) {
         if framed == Some(app.cam) {
             app.fit_view();
         }
-<<<<<<< HEAD
-        if let Some(key) = &m.remember {
-            crate::home::remember_source(&mut app.home, &app.session, key);
-=======
         crate::frame_watch::step(app, "frame the meshes");
-        if remember {
-            crate::home::remember_session(&mut app.home, &app.session);
->>>>>>> 83419e27c (Open: the picture grows in mesh order and stays once complete; refreshes pace themselves; named frame steps; watchdog test)
+        if let Some(key) = remember {
+            crate::home::remember_source(&mut app.home, &app.session, &key);
         }
         crate::frame_watch::step(app, "home picture");
         return;
