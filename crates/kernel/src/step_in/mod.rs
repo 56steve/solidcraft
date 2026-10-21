@@ -125,90 +125,17 @@ struct Units {
 
 const DEFAULT_UNITS: Units = Units { len: 1.0, ang: 1.0, tol: 0.01 };
 
-fn si_prefix(p: Option<&Param>) -> f64 {
-    match p.and_then(Param::as_enum) {
-        Some("EXA") => 1e18,
-        Some("PETA") => 1e15,
-        Some("TERA") => 1e12,
-        Some("GIGA") => 1e9,
-        Some("MEGA") => 1e6,
-        Some("KILO") => 1e3,
-        Some("HECTO") => 1e2,
-        Some("DECA") => 1e1,
-        Some("DECI") => 1e-1,
-        Some("CENTI") => 1e-2,
-        Some("MILLI") => 1e-3,
-        Some("MICRO") => 1e-6,
-        Some("NANO") => 1e-9,
-        Some("PICO") => 1e-12,
-        Some("FEMTO") => 1e-15,
-        Some("ATTO") => 1e-18,
-        _ => 1.0,
-    }
-}
-
-/// A unit's size: millimetres for lengths, radians for plane angles.
-fn unit_factor(ex: &Exchange, id: u64, depth: usize) -> Option<(&'static str, f64)> {
-    if depth > 4 {
-        return None;
-    }
-    let e = ex.get(id)?;
-    let kind = if e.has("LENGTH_UNIT") {
-        "length"
-    } else if e.has("PLANE_ANGLE_UNIT") {
-        "angle"
-    } else {
-        "other"
-    };
-    if let Some(si) = e.record("SI_UNIT") {
-        let base = match si.get(1).and_then(Param::as_enum) {
-            Some("METRE") => 1000.0,
-            Some("RADIAN") => 1.0,
-            _ => return Some((kind, 1.0)),
-        };
-        return Some((kind, si_prefix(si.first()) * base));
-    }
-    if let Some(cb) = e.record("CONVERSION_BASED_UNIT") {
-        let m = ex.get(cb.get(1)?.as_ref_id()?)?;
-        let mp = m.params();
-        let v = mp.first()?.as_f64()?;
-        let (_, f) = unit_factor(ex, mp.get(1)?.as_ref_id()?, depth + 1)?;
-        let x = v * f;
-        return (x.is_finite() && x > 0.0).then_some((kind, x));
-    }
-    Some((kind, 1.0))
-}
-
-/// Units of a representation context (GLOBAL_UNIT_ASSIGNED_CONTEXT, uncertainty).
+/// Units of a representation context (GLOBAL_UNIT_ASSIGNED_CONTEXT, uncertainty), read by
+/// [`solidcraft_step::units::context`]; the vertex-on-curve tolerance is ten times the
+/// uncertainty (at least 1e-3 mm), else a hundredth of the length unit, within [1e-4, 1] mm.
 fn context_units(ex: &Exchange, ctx: Option<u64>, cache: &mut HashMap<u64, Units>) -> Units {
     let Some(id) = ctx else { return DEFAULT_UNITS };
     if let Some(u) = cache.get(&id) {
         return *u;
     }
-    let mut u = DEFAULT_UNITS;
-    let mut tol_file = None;
-    if let Some(e) = ex.get(id) {
-        if let Some(units) = e.record("GLOBAL_UNIT_ASSIGNED_CONTEXT").and_then(|r| r.first()).and_then(Param::as_list) {
-            for uid in units.iter().filter_map(Param::as_ref_id) {
-                match unit_factor(ex, uid, 0) {
-                    Some(("length", f)) if f.is_finite() && f > 0.0 => u.len = f,
-                    Some(("angle", f)) if f.is_finite() && f > 0.0 => u.ang = f,
-                    _ => {}
-                }
-            }
-        }
-        if let Some(unc) = e.record("GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT").and_then(|r| r.first()).and_then(Param::as_list) {
-            for uid in unc.iter().filter_map(Param::as_ref_id) {
-                if let Some(m) = ex.get(uid)
-                    && let Some(v) = m.params().first().and_then(Param::as_f64)
-                {
-                    let f = m.params().get(1).and_then(Param::as_ref_id).and_then(|x| unit_factor(ex, x, 0)).map(|x| x.1);
-                    tol_file = Some(v * f.unwrap_or(u.len));
-                }
-            }
-        }
-    }
-    u.tol = tol_file.filter(|t| t.is_finite() && *t > 0.0).map(|t| (t * 10.0).max(1e-3)).unwrap_or(u.len * 1e-2).clamp(1e-4, 1.0);
+    let c = solidcraft_step::units::context(ex, id);
+    let tol = c.uncertainty.map(|t| (t * 10.0).max(1e-3)).unwrap_or(c.units.len * 1e-2).clamp(1e-4, 1.0);
+    let u = Units { len: c.units.len, ang: c.units.ang, tol };
     cache.insert(id, u);
     u
 }
