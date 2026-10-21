@@ -19,6 +19,10 @@ path = "src/main.rs"
 name = "solvecraft-cli"
 path = "src/alias.rs"
 
+[features]
+# Link SMLib into the kernel, for the regression rig's smlib runs (tests/kernel-cases).
+smlib = ["solidcraft-engine/smlib"]
+
 [dependencies]
 solidcraft-engine = { workspace = true }
 solidcraft-gpu = { workspace = true }
