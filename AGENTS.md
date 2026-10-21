@@ -20,7 +20,10 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
 - **SMLib C++ is allowed** in the forked library tangency-labs/smlib, linked statically into the
   app behind C shims. The shims catch every C++ exception and return status codes; no C++ type
   crosses them. SolidCraft's own code stays Rust.
-- **The FFI crate may use `unsafe`**, only at the C boundary, like `crates/threedx-client`.
+- **The FFI crate may use `unsafe`**, only at the C boundary, like `crates/threedx-client`:
+  `crates/smlib/src/ffi.rs`. To build with SMLib, run `scripts/fetch-smlib.sh` (the fork at
+  `crates/smlib/SMLIB_REV`), then add `--features solidcraft-kernel/smlib`. Without the feature
+  nothing C++ is built and `solidcraft-smlib` answers every call with `NotBuilt`.
 - **wasm is not checked** on this branch until the owner decides it.
 - **OpenCASCADE is never read, built or linked**, including usd-brep's former OCCT translators.
 - **No CI runs** for pull requests into this branch for now (owner).
@@ -94,7 +97,7 @@ People trust SolidCraft with their designs; a crash loses their work. **This out
   dialogs, sketch tools, palette, scripts, CLI and control channel all reach the same commands.
 - **Programmatic calls never open dialogs.** `engine.execute` runs the JSON form; only toolbar
   clicks (`ui.start`) start interactive tools and dialogs, which then run commands.
-- **Layering** is enforced by `cargo xtask layers`: L0 `geom` → L1 `sketch`, `kernel`, `render`
+- **Layering** is enforced by `cargo xtask layers`: L0 `geom` → L1 `sketch`, `smlib`, `kernel`, `render`
   → L2 `doc` → L3 `io` → L4 `engine` → L5 `ui-egui` → apps. Nothing below L5 depends on
   egui/eframe/winit/wgpu/rfd. **The UI crate is swappable.** Only `crates/kernel` may use `truck` or call solidcore/SMLib.
 - **The UI is thin**: panels read engine state and act through `app.run(id, params)` /

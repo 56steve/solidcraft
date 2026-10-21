@@ -4310,6 +4310,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solidcraft-geom",
+ "solidcraft-smlib",
  "spade",
  "thiserror 2.0.21",
  "truck-meshalgo",
@@ -4352,6 +4353,14 @@ dependencies = [
  "solidcraft-geom",
  "thiserror 2.0.21",
  "ttf-parser",
+]
+
+[[package]]
+name = "solidcraft-smlib"
+version = "0.18.1"
+dependencies = [
+ "cc",
+ "log",
 ]
 
 [[package]]
