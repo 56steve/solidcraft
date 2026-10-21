@@ -386,7 +386,27 @@ fn thread_on(st: &ModelState, feature: u64, p: Vec3, designation: Option<&str>, 
 /// profile, 60° flanks): cut from the shaft (external) or the hole wall (internal), running from
 /// `start` to `end` along the axis. `radius` is the face's own radius; `open` says which ends
 /// of the threaded length are free ends of the face.
+/// The groove of [`thread_groove_shape`] as the faceted solid the truck kernel cuts.
 fn thread_groove(t: &ThreadInfo, radius: f64, open: (bool, bool)) -> Result<solidcraft_geom::Mesh> {
+    let g = thread_groove_shape(t, radius, open)?;
+    Ok(kernel::sweep_helix_mesh(&g.plane, &g.section, g.base, g.axis, g.pitch, g.turns, g.stations)?)
+}
+
+/// A thread's groove as a screw sweep: its trapezoid `section` in `plane` (an axial plane
+/// through `base`), carried `turns` turns about `axis` through `base`, rising `pitch` per turn;
+/// `stations` per turn where it is faceted.
+struct GrooveShape {
+    plane: Plane,
+    section: [Vec2; 4],
+    base: Vec3,
+    axis: Vec3,
+    pitch: f64,
+    turns: f64,
+    stations: usize,
+}
+
+/// The shape of [`thread_groove`].
+fn thread_groove_shape(t: &ThreadInfo, radius: f64, open: (bool, bool)) -> Result<GrooveShape> {
     let (p, d) = (t.pitch, t.major_diameter);
     let h = p * 3f64.sqrt() / 2.0;
     let slope = (std::f64::consts::PI / 6.0).tan();
@@ -465,7 +485,7 @@ fn thread_groove(t: &ThreadInfo, radius: f64, open: (bool, bool)) -> Result<soli
     if !stations.is_finite() || stations > 720.0 {
         return Err(DocError::Invalid("the modelled thread is too fine for this diameter; use a cosmetic thread".into()));
     }
-    Ok(kernel::sweep_helix_mesh(&plane, &section, base, *k, p, (s1 - s0) / p, stations as usize)?)
+    Ok(GrooveShape { plane, section, base, axis: *k, pitch: p, turns: (s1 - s0) / p, stations: stations as usize })
 }
 
 /// A constant fillet of `edges`; with [`FilletFit::Reduce`](crate::FilletFit::Reduce), a radius too
@@ -5195,13 +5215,26 @@ fn eval_feature(doc: &Document, vals: &BTreeMap<String, Value>, f: &Feature, st:
             let Some(mb) = st.bodies.get(i).cloned() else { return Err(DocError::Invalid("body".into())) };
             let cyl = kernel::cylinder_face_at(&mb.body, face.0).ok_or_else(|| DocError::Invalid("no cylindrical face there to thread".into()))?;
             let tol = t.pitch * 1e-3;
-            let groove = thread_groove(&t, cyl.radius, ((t.start - cyl.start).abs() < tol, (t.end - cyl.end).abs() < tol))?;
-            // The B-rep boolean can't take helical walls in reasonable time: the body is cut
-            // faceted (curved faces within a two-hundredth of the pitch).
-            let nb = kernel::faceted_boolean(&mb.body, &groove, BoolOp::Cut, t.pitch * 0.005)?
-                .ok_or_else(|| DocError::Invalid("the thread removed everything".into()))?;
-            // The groove's faces are its triangles, with no role to name them by.
-            let groove = crate::lineage::Lineage::unnamed_faces(groove.triangles.len());
+            let open = ((t.start - cyl.start).abs() < tol, (t.end - cyl.end).abs() < tol);
+            let (nb, groove_faces) = match kernel::backend()? {
+                kernel::Backend::Truck => {
+                    let groove = thread_groove(&t, cyl.radius, open)?;
+                    // The B-rep boolean can't take helical walls in reasonable time: the body is cut
+                    // faceted (curved faces within a two-hundredth of the pitch).
+                    let nb = kernel::faceted_boolean(&mb.body, &groove, BoolOp::Cut, t.pitch * 0.005)?;
+                    (nb, groove.triangles.len())
+                }
+                kernel::Backend::Smlib => {
+                    // SMLib cuts the exact groove: its screw sweep, a B-rep boolean.
+                    let g = thread_groove_shape(&t, cyl.radius, open)?;
+                    let section = Region2 { outer: solidcraft_geom::Loop2::polygon(&g.section), holes: Vec::new() };
+                    let groove = kernel::sweep_helix(&g.plane, &section, g.base, g.axis, g.pitch, g.turns)?;
+                    (kernel::boolean(&mb.body, &groove, BoolOp::Cut)?, groove.face_count())
+                }
+            };
+            let nb = nb.ok_or_else(|| DocError::Invalid("the thread removed everything".into()))?;
+            // The groove's faces have no role to name them by.
+            let groove = crate::lineage::Lineage::unnamed_faces(groove_faces);
             let lineage = mb.traced().lineage.and_then(|l| crate::lineage::Lineage::step(&nb, &[&l, &groove]));
             let nb = Traced { body: nb, lineage };
             if let Some(slot) = st.bodies.get_mut(i) {
