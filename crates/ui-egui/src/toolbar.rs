@@ -1777,6 +1777,9 @@ pub(crate) fn selection_filter(app: &mut SolveApp, ui: &mut egui::Ui) {
     }
 }
 
+/// Two Esc presses within this many seconds finish the open sketch.
+pub const ESCAPE_TWICE_S: f64 = 0.4;
+
 /// Global keyboard shortcuts (when no text field has focus).
 pub fn shortcuts(app: &mut SolveApp, ctx: &egui::Context) {
     if app.file_load.busy() {
@@ -1835,6 +1838,16 @@ pub fn shortcuts(app: &mut SolveApp, ctx: &egui::Context) {
         match k {
             Key::Escape => {
                 app.esc_handled = true;
+                // Two quick presses in a sketch finish it (keeping it, like Finish Sketch);
+                // the first one has already cancelled whatever was active.
+                let now = ctx.input(|i| i.time);
+                let again = app.last_escape.is_some_and(|t| now - t <= ESCAPE_TWICE_S);
+                app.last_escape = Some(now);
+                if again && app.session.active_sketch.is_some() {
+                    app.last_escape = None;
+                    app.finish_sketch();
+                    continue;
+                }
                 if crate::sketch_text_move::cancel_drag(app) {
                     continue;
                 }
@@ -1848,8 +1861,8 @@ pub fn shortcuts(app: &mut SolveApp, ctx: &egui::Context) {
                     app.tree.picked_joints.clear();
                     let _ = app.run("select.clear", json!({}));
                 }
-                // An open sketch with nothing left to cancel stays open (#1804). Finish Sketch
-                // is what leaves it, so a second Escape after putting a tool down is harmless.
+                // A single Esc with nothing left to cancel keeps the sketch open (#1804); a quick
+                // second press finishes it (above).
             }
             Key::S if !mods.shift && !mods.alt => {
                 app.start("ui.palette");

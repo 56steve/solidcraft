@@ -951,4 +951,50 @@ mod tests {
         h.settle();
         assert_ne!(line(&h), "No geometry yet", "a drawn rectangle is geometry");
     }
+
+    /// One Esc cancels the tool and keeps the sketch open; two quick presses finish it (the
+    /// sketch is kept and listed in the timeline), also when the first press cancelled a tool.
+    #[test]
+    fn escape_cancels_then_a_quick_second_escape_finishes_the_sketch() {
+        let apart = |h: &mut crate::scenario::Harness| h.frames(60);
+        let mut h = crate::scenario::Harness::new();
+        h.app.run("sketch.create", json!({"plane":"XY"})).unwrap();
+        h.app.run("sketch.rectangle.two_point", json!({"p0":[0,0],"p1":[40,30]})).unwrap();
+        h.settle();
+        h.step(&json!({"start":"sketch.line"})).unwrap();
+        assert!(h.app.tool.is_some());
+        h.step(&json!({"key":"Escape"})).unwrap();
+        assert!(h.app.tool.is_none(), "one Esc puts the tool down");
+        apart(&mut h);
+        h.step(&json!({"key":"Escape"})).unwrap();
+        apart(&mut h);
+        assert!(h.app.session.active_sketch.is_some(), "single presses keep the sketch open");
+
+        // A quick double press finishes and keeps the sketch.
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.settle();
+        assert!(h.app.session.active_sketch.is_none(), "a double Esc finishes the sketch");
+        assert_eq!(h.app.ui.tab, "MODEL");
+        assert!(crate::scenario::handle_at("timeline:Sketch1").is_some(), "the sketch is kept");
+        let sketch = h.app.session.execute("sketch.inspect", &json!({"sketch": 1})).unwrap();
+        assert_eq!(sketch["curves"].as_array().map(Vec::len), Some(4), "{sketch}");
+
+        // With a tool active: the first press cancels it, the second finishes.
+        h.step(&json!({"click": {"handle": "timeline:Sketch1"}, "double": true})).unwrap();
+        h.settle();
+        assert!(h.app.session.active_sketch.is_some());
+        apart(&mut h);
+        h.step(&json!({"start":"sketch.circle.center"})).unwrap();
+        assert!(h.app.tool.is_some());
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.settle();
+        assert!(h.app.tool.is_none() && h.app.session.active_sketch.is_none());
+        assert!(crate::scenario::handle_at("timeline:Sketch1").is_some());
+        // Outside a sketch a double Esc only clears, as before.
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        assert!(h.app.session.active_sketch.is_none());
+    }
 }
