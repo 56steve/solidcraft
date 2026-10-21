@@ -83,28 +83,6 @@ jobs:
           { echo "version=$VERSION"; echo "date=$(date -u +%Y-%m-%d)"; echo "prerelease=$pre"; } >>"$GITHUB_OUTPUT"
           echo "### SolidCraft v$VERSION (\`${GITHUB_SHA::9}\`)" >>"$GITHUB_STEP_SUMMARY"
 
-  # The app icon in every size, drawn by solidcraft-cli (no image files are committed), for the
-  # Windows jobs: the ARM64 build is cross-compiled and can't run there to draw its own.
-  icons:
-    needs: version
-    if: needs.version.outputs.build == 'true'
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          key: release-icons
-      - run: cargo build --release --locked -p solidcraft-cli
-      - run: |
-          . packaging/env.sh
-          make_icons target/release/solidcraft-cli icons
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: icons
-          path: icons
-          if-no-files-found: error
-
   linux:
     name: Linux ${{ matrix.arch }}
     needs: version
@@ -360,9 +338,12 @@ jobs:
 
   windows:
     name: Windows ${{ matrix.arch }}
-    needs: [version, icons]
+    needs: version
     if: needs.version.outputs.build == 'true'
-    runs-on: windows-latest
+    # An 8 vCPU runner: the release build was 35 minutes on a 2 vCPU windows-latest and is the
+    # longest job of the release. The installer icon is the committed
+    # assets/icons/app/windows/exports/solidcraft.ico (package.ps1's default), so nothing waits.
+    runs-on: blacksmith-8vcpu-windows-2025
     strategy:
       fail-fast: false
       matrix:
@@ -375,10 +356,6 @@ jobs:
       SOLIDCRAFT_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: icons
-          path: icons
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -392,8 +369,6 @@ jobs:
           wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
       - name: Build and package (msi, portable zip)
         shell: pwsh
-        env:
-          SOLIDCRAFT_ICONS: ${{ github.workspace }}/icons
         run: ./packaging/windows/package.ps1 -Arch ${{ matrix.arch }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
