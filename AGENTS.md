@@ -94,7 +94,7 @@ People trust SolidCraft with their designs; a crash loses their work. **This out
   dialogs, sketch tools, palette, scripts, CLI and control channel all reach the same commands.
 - **Programmatic calls never open dialogs.** `engine.execute` runs the JSON form; only toolbar
   clicks (`ui.start`) start interactive tools and dialogs, which then run commands.
-- **Layering** is enforced by `cargo xtask layers`: L0 `geom` → L1 `sketch`, `kernel`, `render`
+- **Layering** is enforced by `cargo xtask layers`: L0 `geom` → L1 `sketch`, `step`, `kernel`, `render`
   → L2 `doc` → L3 `io` → L4 `engine` → L5 `ui-egui` → apps. Nothing below L5 depends on
   egui/eframe/winit/wgpu/rfd. **The UI crate is swappable.** Only `crates/kernel` may use `truck` or call solidcore/SMLib.
 - **The UI is thin**: panels read engine state and act through `app.run(id, params)` /
