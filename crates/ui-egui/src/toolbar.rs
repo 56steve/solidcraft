@@ -1808,6 +1808,10 @@ pub fn shortcuts(app: &mut SolveApp, ctx: &egui::Context) {
     }
     for k in keys {
         use egui::Key;
+        // Only Esc pressed twice in a row finishes a sketch: any other key in between resets it.
+        if k != Key::Escape {
+            app.last_escape = None;
+        }
         if shown && crate::navigation::view_key(app, ctx, k, mods) {
             continue;
         }
@@ -1843,9 +1847,22 @@ pub fn shortcuts(app: &mut SolveApp, ctx: &egui::Context) {
                 let now = ctx.input(|i| i.time);
                 let again = app.last_escape.is_some_and(|t| now - t <= ESCAPE_TWICE_S);
                 app.last_escape = Some(now);
-                if again && app.session.active_sketch.is_some() {
+                // Not while a tool is still out (its first Esc only ended a chain): this press
+                // puts it down, and the next quick one finishes.
+                if again
+                    && app.tool.is_none()
+                    && app.dialog.is_none()
+                    && let Some(sketch) = app.session.active_sketch
+                {
                     app.last_escape = None;
+                    // A sketch left blank is taken away instead, in one undo step, so no empty
+                    // sketch stays behind.
+                    let blank = app.session.doc.sketch(sketch).is_ok_and(crate::sketch_palette::is_blank);
+                    let depth = app.session.undo.len();
                     app.finish_sketch();
+                    if blank && app.session.active_sketch.is_none() && app.run("timeline.delete", json!({ "feature": sketch.to_string() })).is_ok() {
+                        app.session.undo.truncate(depth + 1);
+                    }
                     continue;
                 }
                 if crate::sketch_text_move::cancel_drag(app) {

@@ -43,6 +43,18 @@ pub fn has_geometry(sketch: &solidcraft_engine::sketch::Sketch) -> bool {
     !sketch.curves.is_empty() || !sketch.wires.is_empty()
 }
 
+/// Nothing the user added: no curve, 3D curve, constraint or dimension, pattern, projection,
+/// text or offset, and no point but the fixed origin.
+pub fn is_blank(sketch: &solidcraft_engine::sketch::Sketch) -> bool {
+    !has_geometry(sketch)
+        && sketch.constraints.is_empty()
+        && sketch.patterns.is_empty()
+        && sketch.links.is_empty()
+        && sketch.offsets.is_empty()
+        && sketch.freeform_offsets.is_empty()
+        && sketch.points.iter().all(|p| p.id == "origin")
+}
+
 /// The degrees-of-freedom line: "No geometry yet" (an empty sketch only has its fixed origin),
 /// "Fully constrained" or "N degrees of freedom".
 pub fn dof_text(dof: usize, ok: bool, has_geometry: bool) -> String {
@@ -996,5 +1008,39 @@ mod tests {
         h.step(&json!({"key":"Escape"})).unwrap();
         h.step(&json!({"key":"Escape"})).unwrap();
         assert!(h.app.session.active_sketch.is_none());
+    }
+
+    /// A double Esc on a sketch left blank takes it away (no empty sketch in the browser or the
+    /// timeline, one undo step) and puts the view back; one line is enough to keep it.
+    #[test]
+    fn a_quick_double_escape_discards_a_blank_sketch_and_keeps_one_with_a_line() {
+        let mut h = crate::scenario::Harness::new();
+        h.call("ui.view", json!({"view": "iso"}));
+        h.frames(3);
+        let undo = h.app.session.undo.len();
+        h.step(&json!({"start":"sketch.create"})).unwrap();
+        h.step(&json!({"click": {"plane": "XY"}})).unwrap();
+        h.settle();
+        assert!(h.app.session.active_sketch.is_some());
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.settle();
+        crate::scenario::check(&mut h, &json!({"sketching": false, "camera": {"yaw_deg": -45, "pitch_deg": 35}})).unwrap();
+        assert_eq!(h.app.ui.tab, "MODEL");
+        assert!(h.app.session.doc.features.is_empty(), "the blank sketch is gone");
+        assert!(crate::scenario::handles("timeline:").iter().all(|(n, _)| !n.contains("Sketch")));
+        assert!(crate::scenario::handle_at("row:Sketch1").is_none());
+        assert!(h.app.session.undo.len() <= undo + 2, "creating and discarding are at most two steps");
+
+        h.step(&json!({"start":"sketch.create"})).unwrap();
+        h.step(&json!({"click": {"plane": "XY"}})).unwrap();
+        h.app.run("sketch.line", json!({"points": [[0, 0], [30, 10]]})).unwrap();
+        h.settle();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.step(&json!({"key":"Escape"})).unwrap();
+        h.settle();
+        assert!(h.app.session.active_sketch.is_none());
+        assert_eq!(h.app.session.doc.features.len(), 1, "a sketch with a line is kept");
+        assert!(crate::scenario::handles("timeline:").iter().any(|(n, _)| n.contains("Sketch")));
     }
 }
