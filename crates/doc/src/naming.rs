@@ -241,13 +241,11 @@ pub(crate) fn names(b: &ModelBody) -> Arc<Names> {
         .get_or_init(|| {
             // Exact history needs no mesh; geometry does (its face count is the mesh's).
             let names = match b.names.origin.as_ref() {
-                Some(o) if o.depth < MAX_DEPTH => b
-                    .names
-                    .lineage
-                    .as_ref()
-                    .and_then(|l| crate::history_names::derive(b, o, l))
-                    .unwrap_or_else(|| Names::unverified(geometric_names(b, o, face_count(b)), &mesh_adjacency(b), &|| face_centres(b))),
-                _ => Names::unverified((0..face_count(b)).map(|k| format!("{}:face:{k}", b.name)).collect(), &[], &Vec::new),
+                Some(o) if o.depth < MAX_DEPTH => b.names.lineage.as_ref().and_then(|l| crate::history_names::derive(b, o, l)).unwrap_or_else(|| {
+                    let centres = || face_centres(b);
+                    Names::unverified(geometric_names(b, o, face_count(b)), &mesh_adjacency(b), crate::history_names::by_place(&o.feature, &centres))
+                }),
+                _ => Names::unverified((0..face_count(b)).map(|k| format!("{}:face:{k}", b.name)).collect(), &[], None),
             };
             Arc::new(names)
         })

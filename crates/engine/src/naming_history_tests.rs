@@ -424,3 +424,38 @@ fn split_pieces_keep_their_numbers_across_evaluations() {
         assert_eq!(named(&mut fresh), first, "evaluation {run}");
     }
 }
+
+/// #3902: a design saved before the pieces of a face were numbered by place opens with the
+/// numbers it was saved with, so a reference to `…#1` stays on the piece it was made on. The
+/// block cut by the second block here has its side split in two, numbered the other way round
+/// by place.
+#[test]
+fn a_design_saved_before_pieces_were_numbered_by_place_keeps_their_numbers() {
+    let script: Value = serde_json::from_str(include_str!("../../../tests/action_matrix/designs/multi-body-join-cut.json")).unwrap();
+    let mut s = Session::default();
+    s.run_script(&script).unwrap();
+    let by_place = listed(&mut s, "Block");
+    // As a build before the change saved it: its features carry no mark, and the file does not
+    // list the change among those it has.
+    let mut file: Value = serde_json::from_str(&s.doc.to_json()).unwrap();
+    for f in file["features"].as_array_mut().unwrap() {
+        f.as_object_mut().unwrap().remove("kernel_piece_order");
+    }
+    if let Some(Value::Array(pending)) = file.get_mut("format_pending") {
+        pending.retain(|c| c != "face-pieces-by-place");
+    }
+    let old = solidcraft_doc::Document::from_json(&file.to_string()).unwrap();
+    assert!(old.features.iter().all(|f| f.kernel_piece_order), "the features of an older design keep the old numbering");
+    let mut reopened = Session::new(old);
+    reopened.refresh();
+    let kept = listed(&mut reopened, "Block");
+    let at = |faces: &[(String, bool, [f64; 3])], name: &str| faces.iter().find(|(n, _, _)| n == name).map(|(_, _, c)| *c);
+    // The pieces are numbered differently by place, and the older design keeps its own numbers.
+    let (old1, new1) = (at(&kept, "F2:side#1").unwrap(), at(&by_place, "F2:side#1").unwrap());
+    assert!((0..3).any(|k| (old1[k] - new1[k]).abs() > 1.0), "{kept:?} {by_place:?}");
+    let mut legacy = solidcraft_doc::Document::clone(&s.doc);
+    legacy.features.iter_mut().for_each(|f| f.kernel_piece_order = true);
+    let mut saved_with = Session::new(legacy);
+    saved_with.refresh();
+    assert_eq!(listed(&mut saved_with, "Block"), kept);
+}

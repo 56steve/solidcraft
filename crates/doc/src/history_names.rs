@@ -45,8 +45,9 @@ pub(crate) struct FaceInfo {
 
 impl Names {
     /// Names worked out from geometry: the same names, none of them verified, pieces told apart
-    /// by the faces around them (`adjacent`: pairs of faces sharing an edge).
-    pub(crate) fn unverified(names: Vec<String>, adjacent: &[(usize, usize)], centres: &dyn Fn() -> Vec<Vec3>) -> Names {
+    /// by the faces around them (`adjacent`: pairs of faces sharing an edge), then numbered by
+    /// place (`centres`, see [`qualify_at`]).
+    pub(crate) fn unverified(names: Vec<String>, adjacent: &[(usize, usize)], centres: Option<&dyn Fn() -> Vec<Vec3>>) -> Names {
         let named = names
             .into_iter()
             .map(|name| Named { name: crate::naming::strip_piece(&name).to_string(), aliases: Vec::new(), verified: false, origins: None })
@@ -96,7 +97,8 @@ pub(crate) fn derive(b: &ModelBody, o: &NamingOrigin, lineage: &Lineage) -> Opti
         }
     }
     let named: Vec<Named> = named.into_iter().collect::<Option<_>>()?;
-    Some(qualify_at(named, &adjacency(h), &|| crate::naming::face_centres(b)))
+    let centres = || crate::naming::face_centres(b);
+    Some(qualify_at(named, &adjacency(h), by_place(&o.feature, &centres)))
 }
 
 /// Pairs of faces that share an edge, from a history.
@@ -141,7 +143,8 @@ impl<'a> OperandNames<'a> {
                     .get_or_init(|| {
                         Arc::new(derive(body, o, &stage.lineage).unwrap_or_else(|| {
                             let names = crate::naming::geometric_names(body, o, body.body.face_count());
-                            Names::unverified(names, &crate::naming::mesh_adjacency(body), &|| crate::naming::face_centres(body))
+                            let centres = || crate::naming::face_centres(body);
+                            Names::unverified(names, &crate::naming::mesh_adjacency(body), by_place(&o.feature, &centres))
                         }))
                     })
                     .clone();
@@ -269,17 +272,25 @@ pub(crate) fn descends(name: &str, stem: &str) -> bool {
 /// lack (`adjacent`: pairs of faces sharing an edge).
 #[cfg(test)]
 fn qualify(named: Vec<Named>, adjacent: &[(usize, usize)]) -> Names {
-    qualify_at(named, adjacent, &Vec::new)
+    qualify_at(named, adjacent, None)
+}
+
+/// How the pieces `f` splits a face into are numbered: by place (`centres`), else, for a feature
+/// saved before that (`Feature::kernel_piece_order`), as the build that saved it numbered them.
+pub(crate) fn by_place<'a>(f: &crate::Feature, centres: &'a dyn Fn() -> Vec<Vec3>) -> Option<&'a dyn Fn() -> Vec<Vec3>> {
+    (!f.kernel_piece_order).then_some(centres)
 }
 
 /// [`qualify`], with `centres` giving each face's centre (worked out only when pieces tie): pieces
 /// that nothing else tells apart are numbered along their spread, not in the kernel's order,
-/// which can differ from one evaluation to the next (#3902).
-fn qualify_at(named: Vec<Named>, adjacent: &[(usize, usize)], centres: &dyn Fn() -> Vec<Vec3>) -> Names {
+/// which can differ from one evaluation to the next (#3902). Without `centres`, in the kernel's
+/// order and by the faces they came from, as builds before that numbered them.
+fn qualify_at(named: Vec<Named>, adjacent: &[(usize, usize)], centres: Option<&dyn Fn() -> Vec<Vec3>>) -> Names {
+    let by_place = centres.is_some();
     let worked_out = std::cell::OnceCell::new();
     // Tied pieces in the order of their spread; as they are when there are no centres.
     let in_order = |tied: Vec<usize>| -> Vec<usize> {
-        let at: &Vec<Vec3> = worked_out.get_or_init(centres);
+        let at: &Vec<Vec3> = worked_out.get_or_init(|| centres.map(|c| c()).unwrap_or_default());
         if at.len() != named.len() {
             return tied;
         }
@@ -338,7 +349,9 @@ fn qualify_at(named: Vec<Named>, adjacent: &[(usize, usize)], centres: &dyn Fn()
             let mut tied = tied;
             let origins: Vec<Option<&Vec<FaceOrigin>>> = tied.iter().map(|i| named.get(*i).and_then(|x| x.origins.as_ref())).collect();
             let distinct = origins.iter().all(Option::is_some) && origins.iter().collect::<BTreeSet<_>>().len() == origins.len();
-            if distinct {
+            if distinct && !by_place {
+                tied.sort_by_key(|i| named.get(*i).and_then(|x| x.origins.clone()));
+            } else if distinct {
                 // By what they came from, but not by where it stood in its operand's face order:
                 // an operand that came out of a boolean can list its faces in another order on
                 // the next evaluation (#3902). Pieces of faces of one kind are numbered by place.
