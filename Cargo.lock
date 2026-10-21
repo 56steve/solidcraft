@@ -4376,6 +4376,9 @@ dependencies = [
 [[package]]
 name = "solidcraft-step"
 version = "0.18.1"
+dependencies = [
+ "solidcraft-geom",
+]
 
 [[package]]
 name = "solidcraft-ui-egui"
