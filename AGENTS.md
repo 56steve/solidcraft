@@ -36,6 +36,12 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
   through SMLib, with SMLib's own history (`crates/kernel/src/boolean_backend.rs`); the engine and
   `solidcraft-cli` pass the feature on as their own `smlib`. Set to `smlib`
   in a build without the feature, every boolean fails rather than running truck.
+- **One switch picks the kernel**: in a build with the feature, `SOLIDCRAFT_KERNEL=smlib` (read
+  once per process; `truck` or unset is the default) runs every operation that has an SMLib path
+  through SMLib; operations ask `solidcraft_kernel::backend()` (`crates/kernel/src/backend.rs`).
+  Booleans go through SMLib with SMLib's own history (`crates/kernel/src/smlib_boolean.rs`). The
+  engine and `solidcraft-cli` pass the feature on as their own `smlib`. Set to `smlib` in a build
+  without the feature, or to anything else, those operations fail rather than running truck.
 - **wasm is not checked** on this branch until the owner decides it.
 - **OpenCASCADE is never read, built or linked**, including usd-brep's former OCCT translators.
 - **No CI runs** for pull requests into this branch for now (owner).
