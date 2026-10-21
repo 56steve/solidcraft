@@ -49,7 +49,7 @@ on:
   # The merge queue: each queued group runs the full suite before it lands on main.
   merge_group:
   push:
-    branches: [main]
+    branches: [main, kernel-smlib]  # kernel-smlib: full suite after each merge into the kernel branch
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
