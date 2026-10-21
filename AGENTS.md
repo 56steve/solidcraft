@@ -21,7 +21,7 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
   app behind C shims. The shims catch every C++ exception and return status codes; no C++ type
   crosses them. SolidCraft's own code stays Rust.
 - **The FFI crate may use `unsafe`**, only at the C boundary, like `crates/threedx-client`:
-  `crates/smlib/src/ffi.rs`. To build with SMLib, run `scripts/fetch-smlib.sh` (the fork at
+  `crates/smlib/src/ffi.rs` and its child modules `ffi/*.rs`, one per area of the C API. To build with SMLib, run `scripts/fetch-smlib.sh` (the fork at
   `crates/smlib/SMLIB_REV`), then add `--features solidcraft-kernel/smlib`. Without the feature
   nothing C++ is built and `solidcraft-smlib` answers every call with `NotBuilt`.
 - **wasm is not checked** on this branch until the owner decides it.
