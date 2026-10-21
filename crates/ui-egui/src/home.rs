@@ -57,6 +57,19 @@ pub struct HomeState {
 }
 
 impl HomeState {
+    /// Wait for the background check of the recent files to answer (tests only).
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub(crate) fn wait_for_existence_checks(&mut self) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while self.recent.iter().any(|p| !self.present.contains_key(p)) && std::time::Instant::now() < deadline {
+            for rx in &self.present_rx {
+                while let Ok((p, there)) = rx.try_recv() {
+                    self.present.insert(p, there);
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
     pub fn ready_recents(&self) -> usize {
         self.recent.iter().filter(|p| self.thumbs.get(*p).is_some_and(Option::is_some)).count()
     }
