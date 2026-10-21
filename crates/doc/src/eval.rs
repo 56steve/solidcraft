@@ -1447,7 +1447,7 @@ impl Model {
                                         p.x, p.y, p.z
                                     )),
                                 },
-                                _ => *p = hit.point,
+                                _ => *p = hit.pick_point(&fst, *p),
                             }
                         }
                         None => notes.push(format!("face `{n}` no longer exists; using the face at the picked point")),
