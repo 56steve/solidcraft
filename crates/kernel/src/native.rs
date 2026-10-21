@@ -8,14 +8,14 @@ use std::sync::Arc;
 mod adapter;
 mod binary;
 mod metadata;
-#[allow(dead_code)]
 mod pcurve;
 mod preview;
 pub use preview::native_preview_mesh;
 
 // 01/02 were development-only prototypes; independent metadata records start at 03; 04 stores
-// procedural intersections and placed revolutions exactly, and the measured runtime values.
-const MAGIC: &[u8; 8] = b"SCBREP04";
+// procedural intersections and placed revolutions exactly, and the measured runtime values; 05
+// nests geometry schema 4 (regions, unbounded geometry, pcurves, canonical order).
+const MAGIC: &[u8; 8] = b"SCBREP05";
 // A body's own limits. A design's cache holds many bodies within the container's budgets, and
 // decoding is linear in the bytes, so one large part (an imported casting) fits.
 const MAX_BYTES: usize = 256 << 20;
@@ -69,7 +69,7 @@ pub fn encode_native_body(body: &Body) -> Result<Vec<u8>> {
             return Err(invalid("mesh bodies are source blobs, not B-rep"));
         }
         let runtime = Runtime { size: body.size, coarse_missing: body.coarse_missing.map(|(tol, n)| (tol, n as u64)) };
-        let saved = SavedBody { solid: adapter::encode(&body.solid)?, metadata: metadata::encode(body)?, runtime };
+        let saved = SavedBody { solid: adapter::encode(body, pcurve::pcurves)?, metadata: metadata::encode(body)?, runtime };
         // Structural validation does not invoke another geometric reconstruction.
         validate_topology(&saved)?;
         let value = serde_json::to_value(saved).map_err(invalid)?;
@@ -127,8 +127,7 @@ pub fn decode_native_body(bytes: &[u8]) -> Result<Body> {
 
 fn validate_topology(saved: &SavedBody) -> Result<()> {
     saved.solid.validate().map_err(invalid)?;
-    let faces: usize = saved.solid.shells.iter().map(|s| s.faces.len()).sum();
-    let edges: usize = saved.solid.shells.iter().map(|s| s.edges.len()).sum();
+    let (faces, edges) = (saved.solid.faces.len(), saved.solid.edges.len());
     let saved = &saved.metadata;
     if saved.version != solidcraft_geom::brep::envelope::VERSION {
         return Err(invalid("metadata version"));
@@ -256,7 +255,7 @@ mod tests {
             .iter()
             .map(|body| {
                 let bytes = encode_native_body(body).unwrap();
-                assert_eq!(&bytes[..8], b"SCBREP04");
+                assert_eq!(&bytes[..8], b"SCBREP05");
                 let mut raw = &bytes[8..];
                 let value = binary::read(&mut raw, 0, &mut 2_000_000).unwrap();
                 assert!(raw.is_empty());
@@ -264,7 +263,7 @@ mod tests {
             })
             .collect();
         let actual = serde_json::json!(records);
-        let expected: Value = serde_json::from_str(include_str!("native/fixtures/box-fillet-v4.json")).unwrap();
+        let expected: Value = serde_json::from_str(include_str!("native/fixtures/box-fillet-v5.json")).unwrap();
         compare_wire(&expected, &actual);
     }
 
@@ -307,9 +306,9 @@ mod tests {
         for key in ["vertices", "index"] {
             let mut v = value.clone();
             if key == "vertices" {
-                v["solid"]["shells"][0]["edges"][0]["vertices"] = serde_json::json!([u64::MAX, 0]);
+                v["solid"]["edges"][0]["vertices"] = serde_json::json!([u64::MAX, 0]);
             } else {
-                v["solid"]["shells"][0]["faces"][0]["loops"][0][0]["edge"] = serde_json::json!(u64::MAX);
+                v["solid"]["faces"][0]["loops"][0]["edges"][0]["edge"] = serde_json::json!(u64::MAX);
             }
             let mut bad = MAGIC.to_vec();
             binary::write(&v, &mut bad, 0).unwrap();
