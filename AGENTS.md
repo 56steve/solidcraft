@@ -24,6 +24,13 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
   `crates/smlib/src/ffi.rs` and its child modules `ffi/*.rs`, one per area of the C API. To build with SMLib, run `scripts/fetch-smlib.sh` (the fork at
   `crates/smlib/SMLIB_REV`), then add `--features solidcraft-kernel/smlib`. Without the feature
   nothing C++ is built and `solidcraft-smlib` answers every call with `NotBuilt`.
+- **The kernel does geometry; sugar lives above it.** The kernel (SMLib, solidcore) runs exact
+  operations on a B-rep (booleans, blends, shell and offset, sweeps, a helical sweep, surface
+  intersection, measure, checks), takes strict inputs and refuses what it can't do exactly; it never
+  guesses or resizes. Sizes, standards tables, defaults, pre-checks and conveniences belong to the
+  engine and doc. A thread is a helical sweep in the kernel; its ISO size table, the check that
+  refuses a thread off its hole's or shaft's size, and multi-start threads (an array of helical
+  sweeps) are sugar.
 - **wasm is not checked** on this branch until the owner decides it.
 - **OpenCASCADE is never read, built or linked**, including usd-brep's former OCCT translators.
 - **No CI runs** for pull requests into this branch for now (owner).
