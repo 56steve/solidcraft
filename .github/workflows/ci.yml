@@ -453,7 +453,7 @@ jobs:
           "${run[@]}" --profile ci --no-tests=pass --ignore-default-filter -E "$base" || status=1
           if [ "$status" != 0 ]; then
             # A failed golden gets the hint to re-record it (junit.xml lists the failures).
-            if [ -f "$junit" ] && tr '\n' ' ' | grep -q '<testcase name="tests::robustness_goldens::[^"]*"[^>]*>[[:space:]]*<failure'; then
+            if [ -f "$junit" ] && tr '\n' ' ' < "$junit" | grep -q '<testcase name="tests::robustness_goldens::[^"]*"[^>]*>[[:space:]]*<failure'; then
               echo "::error::A robustness golden changed. If the new result is intended, re-record it in this pull request and say why:"
               echo "::error::ROBUSTNESS_GOLDENS_BLESS=\"why it changed\" cargo test --profile ci -p solidcraft-engine --lib robustness_goldens::   (see docs/robustness.md)"
             fi
