@@ -830,8 +830,8 @@ mod tests {
         }
     }
 
-    /// Escape and Enter never leave a sketch (#1804); Undo right after Finish reopens it, and a
-    /// second Undo removes it and leaves the SKETCH tab.
+    /// Escape and Enter, pressed one at a time, never leave a sketch (#1804); Undo right after
+    /// Finish reopens it, and a second Undo removes it and leaves the SKETCH tab.
     #[test]
     fn keys_keep_a_sketch_open_and_undo_after_finish_reopens_it() {
         let mut h = crate::scenario::Harness::new();
@@ -841,7 +841,8 @@ mod tests {
         h.app.run("sketch.rectangle.two_point", json!({"p0": [0, 0], "p1": [40, 30]})).unwrap();
         for key in [json!({"key": "Escape"}), json!({"key": "Escape"}), json!({"key": "Enter"}), json!({"key": "Enter", "cmd": true})] {
             h.step(&key).unwrap();
-            h.frames(2);
+            // Well apart, so two presses are never a quick double press.
+            h.frames(60);
             assert!(h.app.session.active_sketch.is_some(), "{key}");
             assert_eq!(h.app.ui.tab, "SKETCH", "{key}");
         }
