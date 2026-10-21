@@ -192,6 +192,10 @@ fn cavity_history(poly: &Body, on: &[usize], groups: &[Vec<usize>]) -> Option<Hi
 /// Hollow a convex planar body: walls of `thickness` inside, faces near `open` removed. The
 /// result's history is over `[b]`: the inner walls are offsets of the faces they line.
 pub fn shell(b: &Body, open: &[Vec3], thickness: f64) -> Result<Body> {
+    #[cfg(feature = "smlib")]
+    if crate::backend()? == crate::Backend::Smlib {
+        return crate::offset_backend::shell(b, open, thickness);
+    }
     guard("shell", || shell_impl(b, open, thickness)?.with_shell_planar_sources(b, thickness, open))
 }
 
@@ -863,6 +867,10 @@ pub fn offset_faces(b: &Body, at: &[Vec3], distance: f64) -> Result<Body> {
         }
     }
     let chosen = crate::offset::with_same_surface(&healed, &chosen);
+    #[cfg(feature = "smlib")]
+    if crate::backend()? == crate::Backend::Smlib {
+        return crate::offset_backend::offset_faces(&healed, &chosen, distance).map(|r| record::after(r, &healed, &record::counts(&[b])));
+    }
     match offset_planar(&healed, |fi, _| if chosen.contains(&fi) { distance } else { 0.0 }) {
         Ok(r) => Ok(record::after(r, &healed, &record::counts(&[b]))),
         // A piece of a split face (its neighbour stays): the piece swept along its normal

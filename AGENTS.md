@@ -34,7 +34,8 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
 - **One switch picks the kernel**: in a build with the feature, `SOLIDCRAFT_KERNEL=smlib` (read
   once per process; `truck` or unset is the default) runs every operation that has an SMLib path
   through SMLib; operations ask `solidcraft_kernel::backend()` (`crates/kernel/src/backend.rs`).
-  Booleans go through SMLib with SMLib's own history (`crates/kernel/src/smlib_boolean.rs`). The
+  Booleans go through SMLib with SMLib's own history (`crates/kernel/src/smlib_boolean.rs`), shell, offset faces and thicken
+  likewise (`crates/kernel/src/offset_backend.rs`). The
   engine and `solidcraft-cli` pass the feature on as their own `smlib`. Set to `smlib` in a build
   without the feature, or to anything else, those operations fail rather than running truck.
 - **wasm is not checked** on this branch until the owner decides it.
