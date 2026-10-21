@@ -401,3 +401,26 @@ fn a_cut_through_one_of_two_bosses_names_only_its_own_walls() {
     assert_eq!(blends, 4, "{filleted:?}");
     assert_eq!(named_at(&filleted, [19.98, -4.24, 19.0]), boss);
 }
+
+/// #3902: a torus with a closed, twisted square sweep cut inside it splits the sweep's walls into
+/// pieces the kernel returns in a different order on each evaluation. The pieces are numbered by
+/// where they lie, so every fresh evaluation gives each piece the same name.
+#[test]
+fn split_pieces_keep_their_numbers_across_evaluations() {
+    let script: Value = serde_json::from_str(include_str!("../../../examples/regressions/closed_sweep_torus_cut.json")).unwrap();
+    let mut s = Session::default();
+    s.run_script(&script).unwrap();
+    let body = s.model.state().bodies.first().map(|b| b.name.clone()).expect("a body");
+    let named = |s: &mut Session| -> Vec<(String, [i64; 3])> {
+        let mut faces: Vec<(String, [i64; 3])> = listed(s, &body).into_iter().map(|(n, _, c)| (n, c.map(|x| x.round() as i64))).collect();
+        faces.sort();
+        faces
+    };
+    let first = named(&mut s);
+    assert!(first.iter().any(|(n, _)| n.contains('#')), "no split pieces: {first:?}");
+    for run in 0..10 {
+        let mut fresh = Session::new(solidcraft_doc::Document::clone(&s.doc));
+        fresh.refresh();
+        assert_eq!(named(&mut fresh), first, "evaluation {run}");
+    }
+}
