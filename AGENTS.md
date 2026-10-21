@@ -31,11 +31,6 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
   engine and doc. A thread is a helical sweep in the kernel; its ISO size table, the check that
   refuses a thread off its hole's or shaft's size, and multi-start threads (an array of helical
   sweeps) are sugar.
-- **Booleans can run through SMLib**: in a build with the feature, `SOLIDCRAFT_BOOLEANS=smlib`
-  (read once per process; `truck` or unset is the default) sends every `solidcraft_kernel::boolean`
-  through SMLib, with SMLib's own history (`crates/kernel/src/boolean_backend.rs`); the engine and
-  `solidcraft-cli` pass the feature on as their own `smlib`. Set to `smlib`
-  in a build without the feature, every boolean fails rather than running truck.
 - **One switch picks the kernel**: in a build with the feature, `SOLIDCRAFT_KERNEL=smlib` (read
   once per process; `truck` or unset is the default) runs every operation that has an SMLib path
   through SMLib; operations ask `solidcraft_kernel::backend()` (`crates/kernel/src/backend.rs`).
