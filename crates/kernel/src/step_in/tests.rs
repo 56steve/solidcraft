@@ -1820,3 +1820,39 @@ fn step_conformance_parts_read_back_their_exact_shape() {
         }
     }
 }
+
+/// Each STEP file in `SOLIDCRAFT_STEP_CORPUS`: bodies, faces and edges as truck imports it and
+/// as `solidcraft_step::topology` reads it into schema 4 records. Counts may differ where truck
+/// splits faces (bands, balls) or edges; this reports, it does not judge. Run with
+/// `--ignored --nocapture`.
+#[test]
+#[ignore = "needs SOLIDCRAFT_STEP_CORPUS"]
+fn corpus_truck_and_schema_4_counts() {
+    let Ok(dir) = std::env::var("SOLIDCRAFT_STEP_CORPUS") else { return };
+    let mut paths: Vec<_> = std::fs::read_dir(&dir).into_iter().flatten().flatten().map(|e| e.path()).collect();
+    paths.sort();
+    for path in paths.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("step") || e.eq_ignore_ascii_case("stp"))) {
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let truck = match step_import(&text) {
+            Ok(imp) => {
+                // A body per instance: count each STEP item once.
+                let mut seen = HashSet::new();
+                let once: Vec<&ImportedBody> = imp.bodies.iter().filter(|b| seen.insert(b.source_item)).collect();
+                let (f, e) = once.iter().fold((0, 0), |(f, e), b| (f + b.body.face_count(), e + b.body.edge_count()));
+                format!("{} bodies, {f} faces, {e} edges", once.len())
+            }
+            Err(e) => format!("failed: {e}"),
+        };
+        let ex = match solidcraft_step::p21::parse(&text) {
+            Ok(ex) => ex,
+            Err(e) => {
+                println!("{name}: parse failed: {e}");
+                continue;
+            }
+        };
+        let r = solidcraft_step::topology::read_solids(&ex);
+        let (f, e) = r.solids.iter().fold((0, 0), |(f, e), s| (f + s.brep.faces.len(), e + s.brep.edges.len()));
+        println!("{name}: truck {truck}; schema 4 {} solids ({} refused), {f} faces, {e} edges", r.solids.len(), r.failures.len());
+    }
+}
