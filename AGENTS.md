@@ -31,6 +31,10 @@ solidcore's API (ADR 0002). Until it merges back, these rules differ from `main`
   engine and doc. A thread is a helical sweep in the kernel; its ISO size table, the check that
   refuses a thread off its hole's or shaft's size, and multi-start threads (an array of helical
   sweeps) are sugar.
+- **Booleans can run through SMLib**: in a build with the feature, `SOLIDCRAFT_BOOLEANS=smlib`
+  (read once per process; `truck` or unset is the default) sends every `solidcraft_kernel::boolean`
+  through SMLib, with SMLib's own history (`crates/kernel/src/boolean_backend.rs`). Set to `smlib`
+  in a build without the feature, every boolean fails rather than running truck.
 - **wasm is not checked** on this branch until the owner decides it.
 - **OpenCASCADE is never read, built or linked**, including usd-brep's former OCCT translators.
 - **No CI runs** for pull requests into this branch for now (owner).
