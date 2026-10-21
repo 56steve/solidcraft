@@ -4311,6 +4311,7 @@ dependencies = [
  "serde_json",
  "solidcraft-geom",
  "solidcraft-smlib",
+ "solidcraft-step",
  "spade",
  "thiserror 2.0.21",
  "truck-meshalgo",
@@ -4369,6 +4370,10 @@ version = "0.18.1"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "solidcraft-step"
+version = "0.18.1"
 
 [[package]]
 name = "solidcraft-ui-egui"
