@@ -1245,7 +1245,11 @@ impl Body {
         // A face trimmed by a helix (a modelled thread from another CAD system) turns more than
         // once around its cylinder; truck meshes it with triangles across the solid (#1289).
         // Such a body is meshed from its display plan, which cuts the face along a seam.
-        if guard("tessellate", || Ok(crate::tess::seam::turns_more_than_once(&self.solid))).unwrap_or(false) {
+        // So is one bounded by a single seam from pole to pole (a sphere from SMLib), which truck
+        // meshes as nothing.
+        if guard("tessellate", || Ok(crate::tess::seam::turns_more_than_once(&self.solid) || crate::tess::has_pole_to_pole_seam(&self.solid)))
+            .unwrap_or(false)
+        {
             let turn = (angle.is_finite() && angle > 0.0)
                 .then(|| crate::tess::size::Turn { angle: angle.max(MIN_DISPLAY_ANGLE), floor: tol * DISPLAY_ANGLE_FLOOR });
             match guard("tessellate", || crate::tess::plan(&self.solid, tol, turn)) {
