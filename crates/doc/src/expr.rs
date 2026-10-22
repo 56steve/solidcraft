@@ -341,6 +341,12 @@ fn lex_spans(s: &str) -> Result<Vec<(Tok, usize, usize)>, DocError> {
     let mut out = Vec::new();
     // Parentheses open at this point: a comma outside them can only be a decimal comma.
     let mut depth = 0usize;
+    // A single leading `=` marks the text as a formula (`=d3`, #4681) and is not part of it.
+    if let Some(k) = cs.iter().position(|(_, c)| !c.is_whitespace())
+        && cs.get(k).is_some_and(|(_, c)| *c == '=')
+    {
+        i = k + 1;
+    }
     while let Some(&(_, c)) = cs.get(i) {
         if c.is_whitespace() {
             i += 1;
