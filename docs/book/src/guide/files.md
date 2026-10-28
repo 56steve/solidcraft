@@ -114,7 +114,9 @@ from a newer version are refused with a message.
 
 **Save** writes a container by default; files named `.json` keep JSON on subsequent saves.
 **Save As** offers a container or plain JSON on
-desktop; **Save As JSON** is also available in the File menu on desktop and web. Choose
+desktop; **Save As JSON** is also available in the File menu on desktop and web. Both start
+from the name of the open file, or from the design's new name when it was renamed since it
+was opened or saved; a new design starts from its own name. Choose
 the `.json` extension for plain JSON. **Export Design as JSON** writes an independent,
 self-contained copy without changing the current file. Scripts can explicitly pass
 `"format": "json"` to `file.save` or `file.save_as` even with a `.sc` name.

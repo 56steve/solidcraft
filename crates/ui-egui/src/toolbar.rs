@@ -793,12 +793,13 @@ pub(crate) fn save_as(app: &mut SolveApp) {
 
 /// Save As offering a copy's name ("Bracket copy"), so the file it is a copy of is kept.
 pub(crate) fn save_copy(app: &mut SolveApp) {
-    let name = crate::i18n::format("document.copy_name", &[("name", &app.session.doc.name)]);
+    let name = crate::i18n::format("document.copy_name", &[("name", &app.session.save_as_name())]);
     save_as_named(app, &name, solidcraft_engine::io::DESIGN_EXT);
 }
 
+/// Save As offers the open file's own name, not the name stored in the design (#8329).
 fn save_as_with_extension(app: &mut SolveApp, extension: &str) {
-    let name = app.session.doc.name.clone();
+    let name = app.session.save_as_name();
     save_as_named(app, &name, extension);
 }
 
@@ -2505,6 +2506,43 @@ mod header_report_tests {
         let name = offered.borrow().last().map(|(n, _)| n.clone()).unwrap();
         assert!(name.ends_with(".sc"), "Save As offers .sc: {name}");
         assert!(h.dir.join(&name).is_file() && old.is_file(), "Save As leaves the .solidcraft file as it was");
+    }
+
+    /// #8329: Save As (and Save a Copy) offer the name of the file the design came from, not the
+    /// name stored in the design, which a copy of the file still carries; a design renamed since
+    /// it was opened is offered its new name.
+    #[test]
+    fn save_as_offers_the_open_files_own_name() {
+        let mut h = crate::scenario::Harness::new();
+        let offered = std::rc::Rc::new(std::cell::RefCell::new(Vec::<String>::new()));
+        let (seen, dir) = (offered.clone(), h.dir.clone());
+        h.app.services.pick_save = Some(Box::new(move |name, _| {
+            seen.borrow_mut().push(name.to_string());
+            Box::pin(std::future::ready(Some(dir.join(name).to_string_lossy().into_owned())))
+        }));
+        let ask = |h: &mut crate::scenario::Harness, how: fn(&mut SolveApp)| {
+            how(&mut h.app);
+            h.frames(3);
+            h.settle();
+            offered.borrow().last().cloned().unwrap_or_default()
+        };
+        h.app.run("solid.box", json!({"length":2,"width":3,"height":4})).unwrap();
+        h.app.session.doc_mut().name = "Sample Plate".into();
+        assert_eq!(ask(&mut h, save_as), "Sample Plate.sc", "a new design is offered its own name");
+        // The same design under another file name, as copies of a file are (the report's
+        // "Sample Plate-bug.solidcraft"): it is still named "Sample Plate" inside.
+        let copy = h.dir.join("Sample Plate-bug.solidcraft");
+        std::fs::copy(h.dir.join("Sample Plate.sc"), &copy).unwrap();
+        h.app.run("doc.open", json!({"path": copy.to_string_lossy()})).unwrap();
+        assert_eq!(h.app.session.doc.name, "Sample Plate");
+        assert_eq!(ask(&mut h, save_as), "Sample Plate-bug.sc");
+        // Saved under that name, the file is the one Save As offers next time.
+        assert_eq!(h.app.session.path.as_deref(), Some(h.dir.join("Sample Plate-bug.sc").to_string_lossy().as_ref()));
+        assert_eq!(ask(&mut h, save_copy), "Sample Plate-bug copy.sc");
+        h.app.run("doc.open", json!({"path": copy.to_string_lossy()})).unwrap();
+        // Renamed since it was opened: the new name.
+        h.app.run("component.rename", json!({"component": 0, "name": "Plate Mk2"})).unwrap();
+        assert_eq!(ask(&mut h, save_as), "Plate Mk2.sc");
     }
 
     #[test]

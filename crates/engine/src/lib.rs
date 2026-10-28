@@ -643,6 +643,19 @@ impl Session {
         self.saved_visibility = self.visibility.clone();
     }
 
+    /// The name Save As offers for the design's file, without its extension: the name of the
+    /// file it was opened from or last saved to, unless the design has been renamed since, and
+    /// the design's own name otherwise. The name stored in a file need not be the file's: a
+    /// design named `Plate` saved as `Plate-a.sc` and copied to `Plate-b.sc` is `Plate` in both,
+    /// and offering `Plate.sc` for each invites replacing one file with the other (#8329).
+    pub fn save_as_name(&self) -> String {
+        let stem = self.path.as_deref().and_then(|p| std::path::Path::new(p).file_stem()).map(|s| s.to_string_lossy().trim().to_string());
+        match stem {
+            Some(stem) if !stem.is_empty() && self.doc.name == self.saved.name => stem,
+            _ => self.doc.name.clone(),
+        }
+    }
+
     pub fn render_backend(&self) -> render::BackendDescriptor {
         let mut backend = render::builtin_backend();
         if let Some(viewport) = &self.render_viewport {
