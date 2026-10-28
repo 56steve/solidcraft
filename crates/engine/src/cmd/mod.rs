@@ -64,6 +64,7 @@ mod mesh;
 mod metadata;
 pub(crate) mod motion;
 mod parts;
+mod point_cloud;
 mod script;
 mod section;
 pub(crate) use measure_sel::{measure_items, shape_of};
@@ -287,6 +288,7 @@ pub fn command_specs() -> Vec<&'static CommandSpec> {
     v.extend(sketch_ends::COMMANDS.iter());
     v.extend(sketch_canvas::COMMANDS.iter());
     v.extend(canvas_sketch::COMMANDS.iter());
+    v.extend(point_cloud::COMMANDS.iter());
     v.extend(sketch_3d::COMMANDS.iter());
     v.extend(surface_analysis::COMMANDS.iter());
     v.extend(surface_boundary::COMMANDS.iter());

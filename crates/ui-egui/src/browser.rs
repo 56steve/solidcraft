@@ -22,6 +22,8 @@ mod occurrence_gizmo_tests;
 mod model;
 
 mod features;
+mod point_clouds;
+pub use point_clouds::CloudPanel;
 
 pub(crate) fn reveal_feature(app: &mut SolveApp, id: u64, body: &str) {
     features::reveal(app, id, body);
@@ -135,6 +137,8 @@ pub struct TreeState {
     /// The bodies a row at the top of the history lights this frame (`history_rows`), for the
     /// browser, drawn after it, to keep.
     history_hover: Vec<String>,
+    /// The Edit Point Cloud panel.
+    pub cloud_panel: Option<CloudPanel>,
     /// The plane a row at the top of the history lights this frame, kept the same way (#6975).
     history_plane: Option<String>,
     /// A Section Analysis hidden with its eye in the Analysis folder: its plane (origin,
@@ -1224,6 +1228,7 @@ fn finish_browser(app: &mut SolveApp, ui: &mut egui::Ui, mut acts: Actions) {
     crate::browser_prompts::occurrence_panel(app, ui);
     crate::browser_prompts::capture_prompt(app, ui.ctx());
     crate::browser_canvas::panel(app, ui.ctx());
+    point_clouds::panel(app, ui.ctx());
     crate::sketch_attachment_ui::panel(app, ui.ctx());
 }
 
@@ -1357,6 +1362,7 @@ fn component_rows_inner(
         named_view_rows(app, ui, d, acts);
         origin_rows(app, ui, d, acts);
         canvas_rows(app, ui, d, acts);
+        point_clouds::rows(app, ui, d, acts);
         analysis_rows(app, ui, d, acts);
     }
     let render = crate::render_workspace::active(app);
@@ -1916,6 +1922,11 @@ fn canvas_rows(app: &mut SolveApp, ui: &mut egui::Ui, depth: usize, acts: &mut A
             acts.menu = Some((p, Target::Canvas { id }));
         }
     }
+}
+
+/// The menu of a point cloud.
+pub fn point_cloud_items(app: &SolveApp, id: u64) -> Vec<Item> {
+    point_clouds::items(app, id)
 }
 
 /// The menu of a canvas.

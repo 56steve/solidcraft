@@ -493,6 +493,11 @@ pub fn set_vision(mode: ColorVision) {
     VISION.with(|v| v.set(mode));
 }
 
+/// An sRGB colour carried by model data, including file colours and point-cloud shading.
+pub(crate) const fn model_color(rgb: [u8; 3]) -> Color32 {
+    Color32::from_rgb(rgb[0], rgb[1], rgb[2])
+}
+
 /// An sRGB colour given as 0..1 (the analysis colours), for drawing in the UI.
 pub fn srgb(c: [f32; 3]) -> Color32 {
     let byte = |x: f32| (x.clamp(0.0, 1.0) * 255.0).round() as u8;

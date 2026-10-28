@@ -196,6 +196,7 @@ pub mod params_dialog;
 pub(crate) mod pick_index;
 pub(crate) mod place_gizmo;
 pub(crate) mod plugins;
+pub mod point_clouds;
 pub mod prefs;
 pub mod prefs_notice;
 mod prefs_search;
@@ -1496,7 +1497,7 @@ impl SolveApp {
             linked_source::start_selected(self);
             return;
         }
-        if matches!(id, "file.insert_step" | "file.insert_mesh") {
+        if matches!(id, "file.insert_step" | "file.insert_mesh" | "pointcloud.insert") {
             self.pick_open(|app, path| {
                 if let Some(path) = path {
                     app.insert_path_async(&path);
@@ -1947,7 +1948,7 @@ impl SolveApp {
 
     /// Insert CAD bodies, meshes or sketch drawing geometry into the current design.
     pub fn insert_path(&mut self, path: &str) {
-        let cmd = file_load::insert_command(path);
+        let cmd = if solidcraft_engine::io::is_point_cloud_path(path) { "pointcloud.insert" } else { file_load::insert_command(path) };
         let before: Vec<String> = self.session.world_state().bodies.iter().map(|b| b.name.clone()).collect();
         if let Ok(r) = self.run(cmd, json!({ "path": path })) {
             self.fit_view();
@@ -1958,12 +1959,14 @@ impl SolveApp {
         }
     }
 
-    /// A dropped CAD, mesh or drawing file joins a design that has features; otherwise it opens.
+    /// A dropped CAD, mesh, drawing or point cloud (PLY, XYZ, PTS) file joins a design that has
+    /// features or point clouds; otherwise it opens.
     pub fn drop_path(&mut self, path: &str) {
         let import = solidcraft_engine::io::is_step_path(path)
             || solidcraft_engine::io::is_mesh_path(path)
+            || solidcraft_engine::io::is_point_cloud_path(path)
             || solidcraft_engine::cmd::drawing_import_command(path).is_some();
-        if import && !self.session.doc.features.is_empty() {
+        if import && (!self.session.doc.features.is_empty() || !self.session.doc.point_clouds.is_empty()) {
             self.insert_path_async(path);
         } else {
             self.open_path_async(path);

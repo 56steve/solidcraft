@@ -669,6 +669,10 @@ fn file_menu(app: &mut SolveApp, ctx: &egui::Context) {
                     FileAction::Command("file.insert_mesh").run(app);
                     close = true;
                 }
+                if item_if(ui, &format!("{}…", app.tr_label("Insert Point Cloud")), "", "import", shown) {
+                    app.start("pointcloud.insert");
+                    close = true;
+                }
                 if item_if(ui, &format!("{}…", app.tr_label("Insert Design")), "", "component", shown) {
                     FileAction::Command("component.insert_design").run(app);
                     close = true;

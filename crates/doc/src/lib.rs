@@ -52,6 +52,7 @@ pub mod persistent_name;
 pub mod physical_material;
 mod piece_names;
 pub mod pipe_thread_catalog;
+pub mod point_cloud;
 mod points;
 mod profile_refs;
 pub mod progress;

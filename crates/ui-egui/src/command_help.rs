@@ -13,6 +13,7 @@ pub const DOCUMENTED: &[&str] = &[
     "face.delete",
     "material.assign",
     "parameters.change",
+    "pointcloud.insert",
     "solid.align",
     "solid.chamfer",
     "solid.combine",
