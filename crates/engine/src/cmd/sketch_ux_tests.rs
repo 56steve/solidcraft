@@ -692,16 +692,16 @@ fn dragging_a_conic_reads_rho_off_the_cursor_and_its_apex_slides_like_any_point(
     // Grabbed on the curve itself (its midpoint, at the default rho of 0.5): `rho` follows the
     // cursor, read off where it falls between the chord's midpoint (20, 0) and the apex (20,
     // 20). The three defining points stay exactly where they were.
-    drag(&mut s, "k1", [20.0, 10.0], [20.0, 14.0]);
+    drag(&mut s, "n1", [20.0, 10.0], [20.0, 14.0]);
     assert!((rho(&s) - 0.7).abs() < 1e-6, "rho after drag: {}", rho(&s));
-    assert!(pt(&s, "k1.start").dist(v(0.0, 0.0)) < 1e-9);
-    assert!(pt(&s, "k1.end").dist(v(40.0, 0.0)) < 1e-9);
-    assert!(pt(&s, "k1.apex").dist(v(20.0, 20.0)) < 1e-9);
+    assert!(pt(&s, "n1.start").dist(v(0.0, 0.0)) < 1e-9);
+    assert!(pt(&s, "n1.end").dist(v(40.0, 0.0)) < 1e-9);
+    assert!(pt(&s, "n1.apex").dist(v(20.0, 20.0)) < 1e-9);
 
     // Grabbed on the apex itself: it slides like any other point (not a `rho` edit), and `rho`
     // is unaffected.
-    drag(&mut s, "k1.apex", [20.0, 20.0], [10.0, 30.0]);
-    assert!(pt(&s, "k1.apex").dist(v(10.0, 30.0)) < 1e-9);
+    drag(&mut s, "n1.apex", [20.0, 20.0], [10.0, 30.0]);
+    assert!(pt(&s, "n1.apex").dist(v(10.0, 30.0)) < 1e-9);
     assert!((rho(&s) - 0.7).abs() < 1e-6, "rho after apex drag: {}", rho(&s));
 }
 

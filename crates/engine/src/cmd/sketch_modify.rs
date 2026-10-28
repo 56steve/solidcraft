@@ -2300,7 +2300,7 @@ fn copy_through(
                 (kind, "e")
             }
             CurveKind::Spline { .. } => (kind, "s"),
-            CurveKind::Conic { .. } => (kind, "k"),
+            CurveKind::Conic { .. } => (kind, "n"),
             CurveKind::Line { a, b } => (CurveKind::Line { a: m(a), b: m(b) }, "l"),
             CurveKind::Circle { c, r } => (CurveKind::Circle { c: m(c), r: r * scale_r }, "c"),
             CurveKind::Arc { c, a, b } => {
