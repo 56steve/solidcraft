@@ -1004,6 +1004,7 @@
   "cmd.sketch_spline_control_point": "제어점 스플라인",
   "cmd.sketch_spline_control_point_5": "제어점 스플라인(5차)",
   "cmd.sketch_spline_fit_point": "맞춤점 스플라인",
+  "cmd.sketch_spline_reverse": "스플라인 방향 반전",
   "cmd.sketch_spun_profile": "회전 프로파일",
   "cmd.sketch_toggle_driven": "종속 치수 전환",
   "cmd.sketch_transform": "변환",

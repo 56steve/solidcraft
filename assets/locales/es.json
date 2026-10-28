@@ -854,6 +854,7 @@
   "cmd.sketch_spline_control_point": "Spline por puntos de control",
   "cmd.sketch_spline_control_point_5": "Spline por puntos de control (grado 5)",
   "cmd.sketch_spline_fit_point": "Spline por puntos de ajuste",
+  "cmd.sketch_spline_reverse": "Invertir dirección del spline",
   "cmd.sketch_spun_profile": "Perfil de revolución",
   "cmd.sketch_toggle_diameter": "Alternar radio / diámetro",
   "cmd.sketch_toggle_driven": "Alternar cota de referencia",

@@ -885,6 +885,7 @@
   "cmd.sketch_spline_control_point": "Spline por pontos de controle",
   "cmd.sketch_spline_control_point_5": "Spline por pontos de controle (grau 5)",
   "cmd.sketch_spline_fit_point": "Spline por pontos de ajuste",
+  "cmd.sketch_spline_reverse": "Inverter direção do spline",
   "cmd.sketch_spun_profile": "Perfil de revolução",
   "cmd.sketch_toggle_driven": "Alternar cota conduzida",
   "cmd.sketch_trim_path": "Aparar ao longo do caminho",

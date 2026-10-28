@@ -1126,6 +1126,7 @@
   "cmd.sketch_spline_control_point_5": "Spline Titik Kontrol (Derajat 5)",
   "cmd.sketch_spline_fit_point": "Spline Titik Fit",
   "cmd.sketch_spline_insert_point": "Tambah Titik Spline",
+  "cmd.sketch_spline_reverse": "Balik Arah Spline",
   "cmd.sketch_spun_profile": "Profil Putar",
   "cmd.sketch_toggle_diameter": "Beralih Radius / Diameter",
   "cmd.sketch_toggle_driven": "Alihkan Dimensi Driven",
