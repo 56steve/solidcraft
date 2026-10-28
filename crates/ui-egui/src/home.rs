@@ -1490,6 +1490,17 @@ mod tests {
         assert!(!h.app.home.open);
     }
 
+    /// The entry that opens Preferences (Cmd / Ctrl + `,`) carries the window's own name
+    /// (#8318): beside the File menu's "Preferences…" it read "Settings" for the same window.
+    #[test]
+    fn the_entry_that_opens_preferences_carries_the_windows_name() {
+        let mut h = crate::scenario::Harness::new();
+        h.app.home.show(0);
+        assert_eq!(crate::i18n::tr("home.settings"), crate::i18n::tr("ui.preferences"), "one name for the window");
+        click_file(&mut h, "home:settings");
+        assert!(h.app.prefs_window.open, "the entry opens Preferences");
+    }
+
     #[test]
     fn file_view_narrow_navigation_and_content_stay_inside_the_window() {
         for dark in [false, true] {

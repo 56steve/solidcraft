@@ -696,6 +696,17 @@ mod tests {
         assert!(!matches_text("dark", &["Units of new designs"]));
     }
 
+    /// The search field and its empty result name the window they search (#8318): "Search
+    /// settings" under a "Preferences" title read as two names for one window.
+    #[test]
+    fn the_search_field_names_the_window_it_searches() {
+        let name = crate::i18n::tr("ui.preferences").to_lowercase();
+        for id in ["prefs.search", "prefs.search_empty"] {
+            let text = crate::i18n::tr(id).to_lowercase();
+            assert!(text.contains(&name), "`{text}` should name the window `{name}`");
+        }
+    }
+
     /// Typing focuses the field, Enter opens that setting, and Escape returns to the page
     /// that was up when the search started. Recording a shortcut keeps the key.
     #[test]
@@ -803,7 +814,7 @@ mod tests {
         assert!(h.widget("Mouse mapping").is_some(), "the dropdown's current value counts");
         h.app.prefs_window.filter = "zzzz-no-setting".into();
         h.frames(2);
-        assert!(h.widget("No matching settings").is_some());
+        assert!(h.widget("No matching preferences").is_some());
         h.app.prefs_window.filter = "units".into();
         h.frames(2);
         h.step(&serde_json::json!({"click": {"handle": "prefs:page:Design"}})).expect("design page");
