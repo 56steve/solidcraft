@@ -58,6 +58,7 @@ pub mod component;
 pub mod edit;
 pub mod features;
 pub mod inspect;
+pub mod sheet;
 pub mod sketch_constraints;
 pub mod sketch_create;
 pub mod view_navigation;
