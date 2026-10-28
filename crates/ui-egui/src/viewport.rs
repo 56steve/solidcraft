@@ -9029,6 +9029,31 @@ mod tests {
         h.step(&json!({"shot":"fusion-trackpad-pan"})).unwrap();
     }
 
+    /// #8410: with the trackpad orbit reversed, Shift with two fingers orbits exactly the other way
+    /// on both axes, and a plain two-finger pan is the same as without it.
+    #[test]
+    fn reversed_trackpad_orbit_turns_the_other_way_and_leaves_pan_alone() {
+        let step = |orbit_reverse: bool, modifiers: egui::Modifiers| {
+            let mut h = crate::scenario::Harness::new();
+            h.app.preferences.nav = "fusion".into();
+            h.app.preferences.orbit_around = crate::prefs::OrbitAround::ViewCentre;
+            h.app.preferences.orbit_reverse = orbit_reverse;
+            h.call("ui.move", json!({"x":800,"y":500}));
+            let gesture = |phase| egui::Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: vec2(20.0, -10.0), modifiers, phase };
+            h.app.synthetic.push(gesture(egui::TouchPhase::Start));
+            h.frame();
+            let before = h.app.cam;
+            h.app.synthetic.push(gesture(egui::TouchPhase::Move));
+            h.frame();
+            (before, h.app.cam)
+        };
+        let (before, after) = step(true, egui::Modifiers::SHIFT);
+        let mut expected = before;
+        expected.orbit(-20.0, 10.0);
+        assert_eq!(after, expected, "a reversed orbit turns the other way");
+        assert_eq!(step(true, egui::Modifiers::NONE), step(false, egui::Modifiers::NONE), "a pan does not change");
+    }
+
     #[test]
     fn fusion_trackpad_uses_each_events_modifiers_and_can_switch_mid_gesture() {
         let mut h = crate::scenario::Harness::new();

@@ -1,0 +1,34 @@
+{
+  "en": {
+    "ui.reverse_trackpad_orbit_direction": "Reverse trackpad orbit direction",
+    "ui.reverse_trackpad_orbit_tip": "Shift with two-finger scrolling orbits the other way"
+  },
+  "ar": {
+    "ui.reverse_trackpad_orbit_direction": "عكس اتجاه تدوير العرض بلوحة اللمس",
+    "ui.reverse_trackpad_orbit_tip": "التمرير بإصبعين مع Shift يدوّر العرض في الاتجاه المعاكس"
+  },
+  "de": {
+    "ui.reverse_trackpad_orbit_direction": "Drehrichtung am Touchpad umkehren",
+    "ui.reverse_trackpad_orbit_tip": "Umschalt mit Zwei-Finger-Scrollen dreht die Ansicht in die andere Richtung"
+  },
+  "he": {
+    "ui.reverse_trackpad_orbit_direction": "היפוך כיוון סיבוב המבט במשטח המגע",
+    "ui.reverse_trackpad_orbit_tip": "גלילה בשתי אצבעות עם Shift מסובבת את המבט בכיוון ההפוך"
+  },
+  "ja": {
+    "ui.reverse_trackpad_orbit_direction": "トラックパッドのオービット方向を反転",
+    "ui.reverse_trackpad_orbit_tip": "Shift を押しながらの2本指スクロールで、反対方向にオービットします"
+  },
+  "ko": {
+    "ui.reverse_trackpad_orbit_direction": "트랙패드 회전 방향 반전",
+    "ui.reverse_trackpad_orbit_tip": "Shift를 누른 채 두 손가락으로 스크롤하면 반대 방향으로 회전합니다"
+  },
+  "vi": {
+    "ui.reverse_trackpad_orbit_direction": "Đảo hướng xoay góc nhìn bằng bàn di cảm ứng",
+    "ui.reverse_trackpad_orbit_tip": "Giữ Shift và cuộn bằng hai ngón tay sẽ xoay góc nhìn theo hướng ngược lại"
+  },
+  "zh": {
+    "ui.reverse_trackpad_orbit_direction": "反转触控板环绕方向",
+    "ui.reverse_trackpad_orbit_tip": "按住 Shift 双指滚动时向相反方向环绕"
+  }
+}
