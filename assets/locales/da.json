@@ -618,6 +618,7 @@
   "appearance.pbr_opaque": "Uigennemsigtig PBR",
   "appearance.roughness": "Ruhed",
   "appearance.surface_response": "Overfladens reaktion på lys",
+  "at the face": "ved fladen",
   "browser.body_name": "Emne{number}",
   "browser.calibrate_title": "Kalibrér: {name}",
   "browser.capture_many": "{count} komponenter er flyttet, men deres positioner er ikke registreret.",

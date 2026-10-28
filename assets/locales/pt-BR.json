@@ -582,6 +582,7 @@
   "appearance.pbr_opaque": "PBR opaco",
   "appearance.roughness": "Rugosidade",
   "appearance.surface_response": "Resposta da superfície",
+  "at the face": "na face",
   "browser.body_name": "Corpo{number}",
   "browser.calibrate_title": "Calibrar: {name}",
   "browser.capture_many": "{count} componentes foram movidos, mas suas posições não foram capturadas.",

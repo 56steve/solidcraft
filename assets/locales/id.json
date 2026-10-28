@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "PBR Opak",
   "appearance.roughness": "Kekasaran",
   "appearance.surface_response": "Respons permukaan",
+  "at the face": "di muka",
   "bom.group_children": "Sub-part dalam baris part induknya",
   "browser.body_name": "Bodi{number}",
   "browser.calibrate_title": "Kalibrasi: {name}",

@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Непрозорий PBR",
   "appearance.roughness": "Шорсткість",
   "appearance.surface_response": "Відгук поверхні",
+  "at the face": "біля грані",
   "bom.group_children": "Піддеталі в рядку їхньої деталі",
   "browser.body_name": "Тіло{number}",
   "browser.calibrate_title": "Калібрувати: {name}",

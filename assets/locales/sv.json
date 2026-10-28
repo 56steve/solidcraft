@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Ogenomskinlig PBR",
   "appearance.roughness": "Skrovlighet",
   "appearance.surface_response": "Ytrespons",
+  "at the face": "vid ytan",
   "bom.group_children": "Underdelar i sin dels rad",
   "browser.body_name": "Kropp{number}",
   "browser.calibrate_title": "Kalibrera: {name}",

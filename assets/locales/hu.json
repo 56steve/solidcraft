@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Átlátszatlan PBR",
   "appearance.roughness": "Érdesség",
   "appearance.surface_response": "Felületi válasz",
+  "at the face": "a lapnál",
   "bom.group_children": "Részalkatrészek az alkatrészük sorában",
   "browser.body_name": "Test{number}",
   "browser.calibrate_title": "Kalibrálás: {name}",

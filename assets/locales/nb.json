@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Ugjennomsiktig PBR",
   "appearance.roughness": "Ruhet",
   "appearance.surface_response": "Overflatens lysrespons",
+  "at the face": "ved flaten",
   "bom.group_children": "Underdeler i raden til overordnet del",
   "browser.body_name": "Kropp{number}",
   "browser.calibrate_title": "Kalibrer: {name}",

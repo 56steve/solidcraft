@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Neprůhledné PBR",
   "appearance.roughness": "Drsnost",
   "appearance.surface_response": "Odezva povrchu",
+  "at the face": "u plochy",
   "bom.group_children": "Poddíly v řádku svého dílu",
   "browser.body_name": "Těleso{number}",
   "browser.calibrate_title": "Kalibrovat: {name}",

@@ -516,6 +516,7 @@
   "appearance.pbr_opaque": "PBR opaco",
   "appearance.roughness": "Rugosidad",
   "appearance.surface_response": "Respuesta de la superficie",
+  "at the face": "en la cara",
   "bom.group_children": "Subpiezas en la fila de su pieza",
   "browser.body_name": "Cuerpo{number}",
   "browser.calibrate_title": "Calibrar: {name}",

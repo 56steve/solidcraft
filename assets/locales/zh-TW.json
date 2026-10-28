@@ -757,6 +757,7 @@
   "appearance.pbr_opaque": "不透明 PBR",
   "appearance.roughness": "粗糙度",
   "appearance.surface_response": "表面反應",
+  "at the face": "在面上",
   "bom.group_children": "子零件併入所屬零件的列",
   "browser.body_name": "實體{number}",
   "browser.calibrate_title": "校準：{name}",

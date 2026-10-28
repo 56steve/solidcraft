@@ -479,6 +479,7 @@
   "appearance.pbr_opaque": "Nieprzezroczysty PBR",
   "appearance.roughness": "Chropowatość",
   "appearance.surface_response": "Reakcja powierzchni",
+  "at the face": "przy ścianie",
   "browser.body_name": "Bryła{number}",
   "browser.calibrate_title": "Kalibruj: {name}",
   "browser.capture_many": "Przesunięto komponenty ({count}), ale ich położenia nie zostały zapamiętane.",

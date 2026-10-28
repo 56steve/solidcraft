@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "PBR opaque",
   "appearance.roughness": "Rugosité",
   "appearance.surface_response": "Réponse de la surface",
+  "at the face": "sur la face",
   "bom.group_children": "Sous-pièces dans la ligne de leur pièce",
   "browser.body_name": "Corps{number}",
   "browser.calibrate_title": "Calibrer : {name}",

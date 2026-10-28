@@ -760,6 +760,7 @@
   "appearance.pbr_opaque": "Непрозрачный PBR",
   "appearance.roughness": "Шероховатость",
   "appearance.surface_response": "Поведение поверхности",
+  "at the face": "у грани",
   "bom.group_children": "Вложенные детали в строке своей детали",
   "browser.body_name": "Тело{number}",
   "browser.calibrate_title": "Калибровка: {name}",
