@@ -992,6 +992,38 @@ fn midpoint_rejects_wrong_picks_without_changing_the_sketch() {
     }
 }
 
+/// A two-curve constraint picked on one curve twice is refused, leaving the sketch and the undo
+/// history as they were. Parallel, collinear, equal or concentric with itself always held (a
+/// constraint that did nothing); perpendicular or tangent to itself never could, and the refusal
+/// blamed geometry that can't move.
+#[test]
+fn a_two_curve_constraint_on_one_curve_twice_is_refused() {
+    let mut s = new_sketch();
+    run(&mut s, "sketch.line", json!({"points":[[0,0],[60,10]],"infer":false,"connect":false}));
+    run(&mut s, "sketch.circle.center", json!({"center":[40,50],"radius":3}));
+    for (cmd, curve) in [
+        ("parallel", "l1"),
+        ("perpendicular", "l1"),
+        ("collinear", "l1"),
+        ("tangent", "c1"),
+        ("equal", "l1"),
+        ("equal", "c1"),
+        ("concentric", "c1"),
+        ("parallel", "x"),
+    ] {
+        let before = s.doc.to_json();
+        let undo = s.undo.len();
+        let err = match s.execute(&format!("sketch.constraint.{cmd}"), &json!({"a":curve,"b":curve})) {
+            Ok(v) => panic!("{cmd} of {curve} with itself was accepted: {v}"),
+            Err(e) => e.to_string(),
+        };
+        assert!(err.contains("same curve"), "{cmd} {curve}: {err}");
+        assert_eq!(s.doc.to_json(), before, "{cmd} {curve}");
+        assert_eq!(s.undo.len(), undo, "{cmd} {curve}");
+    }
+    run(&mut s, "sketch.constraint.parallel", json!({"a":"l1","b":"x"}));
+}
+
 /// A parameter's row in `parameters.list` (Null when there is none).
 fn param_row(s: &mut Session, name: &str) -> Value {
     let l = run(s, "parameters.list", json!({}));

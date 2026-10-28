@@ -2028,6 +2028,17 @@ fn two_curves(sk: &Sketch, p: &Value, cmd: &str) -> Result<(usize, usize)> {
     Ok((curve_ref(sk, p.get("a"), cmd, "a")?, curve_ref(sk, p.get("b"), cmd, "b")?))
 }
 
+/// The two picks of a two-curve constraint, refused when they are one curve: parallel,
+/// collinear, equal or concentric with itself always holds (it was added as a constraint that
+/// does nothing), and perpendicular or tangent to itself can't, which the solve reported as
+/// geometry that can't move. Coincident already refuses a point with itself.
+fn two_different<T: PartialEq>(cmd: &str, (a, b): (T, T)) -> Result<(T, T)> {
+    if a == b {
+        return Err(bad(cmd, "`a` and `b` are the same curve: pick two different ones"));
+    }
+    Ok((a, b))
+}
+
 /// Two curves where either may be a sketch axis (`x` / `y`, see [`line_or_axis_ref`]).
 fn two_curves_or_axes(sk: &mut Sketch, p: &Value, cmd: &str) -> Result<(usize, usize)> {
     Ok((line_or_axis_ref(sk, p.get("a"), cmd, "a")?, line_or_axis_ref(sk, p.get("b"), cmd, "b")?))
@@ -2036,7 +2047,9 @@ fn two_curves_or_axes(sk: &mut Sketch, p: &Value, cmd: &str) -> Result<(usize, u
 fn c_tangent(s: &mut Session, p: &Value) -> Result<Value> {
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.tangent", &["a", "b"])?;
     constrain(s, p, "sketch.constraint.tangent", |sk| {
-        two_curves_or_axes(sk, p, "sketch.constraint.tangent").map(|(a, b)| ConstraintKind::Tangent { a, b })
+        two_curves_or_axes(sk, p, "sketch.constraint.tangent")
+            .and_then(|ab| two_different("sketch.constraint.tangent", ab))
+            .map(|(a, b)| ConstraintKind::Tangent { a, b })
     })
 }
 fn c_equal(s: &mut Session, p: &Value) -> Result<Value> {
@@ -2044,7 +2057,11 @@ fn c_equal(s: &mut Session, p: &Value) -> Result<Value> {
         return equal_curves(s, p);
     }
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.equal", &["a", "b"])?;
-    constrain(s, p, "sketch.constraint.equal", |sk| two_curves(sk, p, "sketch.constraint.equal").map(|(a, b)| ConstraintKind::Equal { a, b }))
+    constrain(s, p, "sketch.constraint.equal", |sk| {
+        two_curves(sk, p, "sketch.constraint.equal")
+            .and_then(|ab| two_different("sketch.constraint.equal", ab))
+            .map(|(a, b)| ConstraintKind::Equal { a, b })
+    })
 }
 
 /// Equal over a list of curves (#4985): each one is made equal to the first, in one edit (one
@@ -2081,25 +2098,33 @@ fn equal_curves(s: &mut Session, p: &Value) -> Result<Value> {
 fn c_parallel(s: &mut Session, p: &Value) -> Result<Value> {
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.parallel", &["a", "b"])?;
     constrain(s, p, "sketch.constraint.parallel", |sk| {
-        two_curves_or_axes(sk, p, "sketch.constraint.parallel").map(|(a, b)| ConstraintKind::Parallel { a, b })
+        two_curves_or_axes(sk, p, "sketch.constraint.parallel")
+            .and_then(|ab| two_different("sketch.constraint.parallel", ab))
+            .map(|(a, b)| ConstraintKind::Parallel { a, b })
     })
 }
 fn c_perpendicular(s: &mut Session, p: &Value) -> Result<Value> {
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.perpendicular", &["a", "b"])?;
     constrain(s, p, "sketch.constraint.perpendicular", |sk| {
-        two_curves_or_axes(sk, p, "sketch.constraint.perpendicular").map(|(a, b)| ConstraintKind::Perpendicular { a, b })
+        two_curves_or_axes(sk, p, "sketch.constraint.perpendicular")
+            .and_then(|ab| two_different("sketch.constraint.perpendicular", ab))
+            .map(|(a, b)| ConstraintKind::Perpendicular { a, b })
     })
 }
 fn c_concentric(s: &mut Session, p: &Value) -> Result<Value> {
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.concentric", &["a", "b"])?;
     constrain(s, p, "sketch.constraint.concentric", |sk| {
-        two_curves(sk, p, "sketch.constraint.concentric").map(|(a, b)| ConstraintKind::Concentric { a, b })
+        two_curves(sk, p, "sketch.constraint.concentric")
+            .and_then(|ab| two_different("sketch.constraint.concentric", ab))
+            .map(|(a, b)| ConstraintKind::Concentric { a, b })
     })
 }
 fn c_collinear(s: &mut Session, p: &Value) -> Result<Value> {
     let p = &super::sketch_project::project_operands(s, p, "sketch.constraint.collinear", &["a", "b"])?;
     constrain(s, p, "sketch.constraint.collinear", |sk| {
-        two_curves_or_axes(sk, p, "sketch.constraint.collinear").map(|(a, b)| ConstraintKind::Collinear { a, b })
+        two_curves_or_axes(sk, p, "sketch.constraint.collinear")
+            .and_then(|ab| two_different("sketch.constraint.collinear", ab))
+            .map(|(a, b)| ConstraintKind::Collinear { a, b })
     })
 }
 fn c_midpoint(s: &mut Session, p: &Value) -> Result<Value> {
