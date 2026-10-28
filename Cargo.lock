@@ -4404,11 +4404,13 @@ dependencies = [
 name = "solidcraft-sketch"
 version = "0.25.1"
 dependencies = [
+ "harfrust",
  "serde",
  "serde_json",
  "solidcraft-geom",
  "thiserror 2.0.21",
  "ttf-parser",
+ "unicode-bidi",
 ]
 
 [[package]]
