@@ -27,6 +27,45 @@ fn three_point_arc_follows_its_snapped_through_point_after_dimension_change() {
     assert!(distance < 1e-6, "the arc misses its snapped through point by {distance} mm");
 }
 
+/// #6645: the centre-point arc runs the way the cursor went round the centre from the start.
+/// Round clockwise to the top it is three quarters through the bottom; counter-clockwise, as
+/// before, the quarter through the upper right. The start keeps its place and its name. With
+/// the preference off it is counter-clockwise whichever way the cursor went, as it always was.
+#[test]
+fn center_point_arc_runs_the_way_the_cursor_went_round() {
+    let clockwise = &[[7, -7, 0], [0, -10, 0], [-10, 0, 0], [-7, 7, 0]][..];
+    let quarter = Vec2::new(7.071_067_811_865_476, 7.071_067_811_865_476);
+    for (follow, path, reversed, through) in
+        [(true, clockwise, true, Vec2::new(0.0, -10.0)), (true, &[[7, 7, 0]][..], false, quarter), (false, clockwise, false, quarter)]
+    {
+        let mut h = crate::scenario::Harness::new();
+        assert!(h.app.preferences.center_arc_follows_cursor, "on by default");
+        h.app.preferences.center_arc_follows_cursor = follow;
+        h.app.run("sketch.create", json!({"plane":"XY"})).unwrap();
+        h.settle();
+        h.step(&json!({"start":"sketch.arc.center_point"})).unwrap();
+        h.step(&json!({"click":{"world":[0, 0, 0]}})).unwrap();
+        h.step(&json!({"click":{"world":[10, 0, 0]}})).unwrap();
+        for point in path {
+            h.step(&json!({"move":{"world":point}})).unwrap();
+        }
+        h.step(&json!({"move":{"world":[0, 10, 0]}})).unwrap();
+        let sweep = h.app.tool.as_ref().and_then(|t| t.hover.as_ref().map(|p| crate::tools::center_arc_sweep(t, p.0))).unwrap();
+        let expected = if reversed { -270.0 } else { 90.0 };
+        assert!((sweep.to_degrees() - expected).abs() < 1e-6, "previewed sweep {}°", sweep.to_degrees());
+        h.step(&json!({"click":{"world":[0, 10, 0]}})).unwrap();
+        let sid = h.app.session.active_sketch.unwrap();
+        let sk = h.app.session.model.state().sketch(sid).unwrap().sketch.clone();
+        let arc = sk.curves.iter().position(|c| matches!(c.kind, CurveKind::Arc { .. })).unwrap();
+        assert_eq!(sk.curves[arc].reversed, reversed, "{:?}", h.app.status);
+        let id = sk.curves[arc].id.clone();
+        let start = sk.point(sk.resolve_point(&format!("{id}.start")).unwrap()).unwrap();
+        assert!(start.dist(Vec2::new(10.0, 0.0)) < 1e-6, "{start:?}");
+        let off = sk.shape(arc).unwrap().dist(through);
+        assert!(off < 1e-6, "the arc misses {through:?} by {off} mm");
+    }
+}
+
 #[test]
 fn clicked_periodic_fit_closes_at_start_and_right_click_keeps_natural() {
     let mut h = crate::scenario::Harness::new();

@@ -1085,6 +1085,9 @@ preference_settings! {
         "Also place them from the origin (fully constrained)",
         "Each new shape is also dimensioned from the sketch origin until nothing of it is left free. A shape already attached to the origin or to placed geometry gets none."
     );
+    /// A centre-point arc runs the way the cursor goes round its centre from the start (#6645).
+    /// Off: it always runs counter-clockwise from the start, as it did before.
+    center_arc_follows_cursor: bool = true, PAGE_SKETCH;
     /// When true: Shift+click adds without removing; Primary toggles.
     /// When false (default): Shift and Primary both toggle.
     selection_shift_add_only: bool = false, PAGE_SKETCH;

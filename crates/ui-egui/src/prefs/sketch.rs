@@ -21,6 +21,10 @@ pub(super) fn show(app: &mut SolveApp, ui: &mut egui::Ui) {
             let locate = setting::sketch_auto_locate(app, ui);
             crate::scenario::publish_handle("prefs:sketch_auto_locate", locate.rect.center());
         });
+        ui_kit::checkbox(ui, crate::i18n::tr_label("Center point arc follows the cursor's direction"), &mut app.preferences.center_arc_follows_cursor)
+            .on_hover_text(crate::i18n::tr_label(
+                "A center point arc runs clockwise or counter-clockwise the way the cursor goes round its center. Off: always counter-clockwise from the start.",
+            ));
         ui_kit::settings_block_hint(ui, app.tr("prefs.hold_stop_snapping"), app.tr("prefs.snap_drawing_note"), t.space_24 * 8.0 + t.space_8, |ui| {
             let combo = &mut app.preferences.suppress_sketch_snap;
             ui_kit::settings_control_width(ui, t.space_24 * 7.0 + t.space_12, |ui| {

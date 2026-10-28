@@ -99,7 +99,7 @@ pub static COMMANDS: &[CommandSpec] = &[
         .at("SKETCH", "CREATE")
         .icon("arc_center")
         .enabled(in_sketch)
-        .params(concat!("center, start, end (counter-clockwise from start) | center, start, sweep: signed degrees; construction?: bool", connect_doc!(), created_doc!())),
+        .params(concat!("center, start, end (counter-clockwise from start; clockwise?: bool for clockwise) | center, start, sweep: signed degrees; construction?: bool", connect_doc!(), created_doc!())),
     CommandSpec::new("sketch.polygon.inscribed", "Inscribed Polygon", polygon_inscribed)
         .at("SKETCH", "CREATE")
         .icon("polygon")
@@ -1400,7 +1400,31 @@ fn arc_center(s: &mut Session, p: &Value) -> Result<Value> {
             return Ok((ids_of(sk, &[ci]), Vec::new()));
         }
         let b = req_parg(sk, doc, p, "end", cmd)?;
-        let ci = sk.add_arc(c.pos(), a.pos(), b.pos(), [c.idx(), a.idx(), b.idx()], id.as_deref())?;
+        // Clockwise from start to end (#6645): stored counter-clockwise from the end and reversed,
+        // as a negative sweep is. The start keeps the radius and `<id>.start`.
+        let ci = if bool_(p, "clockwise").unwrap_or(false) {
+            let r = a.pos().dist(c.pos());
+            let end = c.pos() + (b.pos() - c.pos()).normalized().ok_or_else(|| bad(cmd, "`end` must not be on `center`"))? * r;
+            let cid = match &id {
+                Some(i) => i.clone(),
+                None => sk.fresh("a")?,
+            };
+            let ai = match a.idx() {
+                Some(i) => i,
+                None => sk.add_point(a.pos(), Some(&format!("{cid}.start")))?,
+            };
+            let bi = match b.idx() {
+                Some(i) => i,
+                None => sk.add_point(end, Some(&format!("{cid}.end")))?,
+            };
+            let ci = sk.add_arc(c.pos(), end, a.pos(), [c.idx(), Some(bi), Some(ai)], Some(&cid))?;
+            if let Some(cu) = sk.curves.get_mut(ci) {
+                cu.reversed = true;
+            }
+            ci
+        } else {
+            sk.add_arc(c.pos(), a.pos(), b.pos(), [c.idx(), a.idx(), b.idx()], id.as_deref())?
+        };
         mark_construction(sk, &[ci], p);
         Ok((ids_of(sk, &[ci]), Vec::new()))
     })?;
