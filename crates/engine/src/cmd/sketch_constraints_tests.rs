@@ -979,6 +979,10 @@ fn midpoint_rejects_wrong_picks_without_changing_the_sketch() {
         json!({"a":"l1","b":"missing"}),
         json!({"a":"l1"}),
         json!({"a":12,"b":"l1"}),
+        // The line's own end: it would shrink the line to a point.
+        json!({"a":"l1.end","b":"l1"}),
+        json!({"a":"l1","b":"l1.start"}),
+        json!({"point":"l1.end","line":"l1"}),
     ] {
         let before = s.doc.to_json();
         let undo = s.undo.len();

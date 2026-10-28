@@ -2106,7 +2106,7 @@ fn c_midpoint(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "sketch.constraint.midpoint";
     let p = &super::sketch_project::project_operands(s, p, cmd, &["a", "b", "point", "line"])?;
     let p = &line_stays(s, p, cmd);
-    constrain(s, p, cmd, |sk| {
+    let pick = |sk: &mut Sketch| -> Result<ConstraintKind> {
         if p.get("a").is_none() && p.get("b").is_none() {
             return Ok(ConstraintKind::Midpoint { p: point_ref(sk, p.get("point"), cmd, "point")?, l: curve_ref(sk, p.get("line"), cmd, "line")? });
         }
@@ -2139,6 +2139,18 @@ fn c_midpoint(s: &mut Session, p: &Value) -> Result<Value> {
             }
             _ => Err(bad(cmd, "MidPoint needs a point and a line, or two lines")),
         }
+    };
+    constrain(s, p, cmd, |sk| {
+        let k = pick(sk)?;
+        // A line's own end at its middle shrinks the line to a point; an angle, tangent or
+        // parallel on it afterwards had no direction to hold and threw points millions of
+        // millimetres away.
+        if let ConstraintKind::Midpoint { p: q, l } = k
+            && matches!(sk.curves.get(l).map(|c| &c.kind), Some(CurveKind::Line { a, b }) if *a == q || *b == q)
+        {
+            return Err(bad(cmd, "a line's own end can't be its midpoint: the line would shrink to a point"));
+        }
+        Ok(k)
     })
 }
 
