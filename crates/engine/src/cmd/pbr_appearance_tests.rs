@@ -183,6 +183,21 @@ fn independent_component_copy_keeps_its_opaque_response_after_source_edits_and_r
     assert_eq!(reopened.appearances.components[&copied], original);
 }
 
+/// A component that carries the design's own name is still reachable by that name (#8358):
+/// `appearance.assign` resolves the name to the component, not to the design's root row.
+#[test]
+fn a_component_named_like_the_design_takes_its_appearance_by_name() {
+    let mut s = Session::default();
+    s.doc_mut().name = "CurtainRailPlug".into();
+    let component = s.execute("component.create", &json!({"name":"CurtainRailPlug","activate":false})).unwrap()["component"].as_u64().unwrap();
+    let assigned =
+        s.execute("appearance.assign", &json!({"components":["CurtainRailPlug"],"color":"#349650","name":"ABS - Green","opacity":1.0})).unwrap();
+    assert_eq!(assigned["components"], json!([component]), "the name resolves to the component, not the design");
+    let look = &s.doc.appearances.components[&component];
+    assert_eq!(look.name, "ABS - Green");
+    assert_eq!(look.color, [0x34, 0x96, 0x50]);
+}
+
 #[test]
 fn named_opaque_finishes_reach_the_scene_and_survive_undo_and_reopen_without_changing_mass() {
     let mut s = fixture();
