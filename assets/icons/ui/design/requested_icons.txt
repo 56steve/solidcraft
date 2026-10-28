@@ -103,6 +103,7 @@ extend	false
 extrude	false
 eye	false
 fastener	false
+feature_group	false
 fillet	false
 finish	false
 finish_edit	false
