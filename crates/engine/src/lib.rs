@@ -43,7 +43,8 @@ use solidcraft_doc::{Document, Model, ModelState};
 use solidcraft_geom::Vec3;
 
 pub use cmd::{
-    CommandInfo, CommandSpec, auto_operation, command_specs, dimension_roles, extrude_reach, find_command, resolve_design_links, standard_view,
+    Addition, CommandInfo, CommandSpec, addition, auto_operation, command_specs, dimension_roles, extrude_reach, find_command, resolve_design_links,
+    shown_scope, standard_view,
 };
 pub use solidcraft_doc as doc;
 pub use solidcraft_doc::Visibility;
@@ -1482,6 +1483,8 @@ impl Session {
                 || id.starts_with("select.");
             steps.push(ComputedCommand { id: id.clone(), params: params.clone(), before, after: computed.doc.clone(), changed, reply });
         }
+        // What the source was primed with stays out of the session that is adopted (#6901).
+        computed.unprime();
         Ok(ComputedCommands { source: self, computed, steps })
     }
 
