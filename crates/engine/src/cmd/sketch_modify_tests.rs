@@ -2655,6 +2655,36 @@ fn trim_cuts_a_line_at_its_tangent_point_on_a_circle() {
     }
 }
 
+/// A dog bone: a 100 x 50 rectangle with a 50 mm circle on each corner, the sides and the
+/// circles' insides trimmed away. Neighbouring circles touch where a side crossed them; the arc
+/// ends there are tied to each other whatever the trim order, as the drawing shows them, and not
+/// to a side a later trim removes (#8612).
+#[test]
+fn trimmed_touching_circles_stay_joined_where_they_touch() {
+    let lines = [("l4", [0.0, 10.0]), ("l4", [0.0, 40.0]), ("l2", [100.0, 10.0]), ("l2", [100.0, 40.0])];
+    let rest = [("l1", [10.0, 0.0]), ("l1", [90.0, 0.0]), ("l3", [10.0, 50.0]), ("l3", [90.0, 50.0])];
+    let circles = [("c1", [17.68, 17.68]), ("c2", [82.32, 17.68]), ("c3", [82.32, 32.32]), ("c4", [17.68, 32.32])];
+    let sides_first: Vec<_> = lines.iter().chain(&rest).chain(&circles).collect();
+    let circles_first: Vec<_> = circles.iter().chain(&lines).chain(&rest).collect();
+    for (name, trims) in [("sides first", sides_first), ("circles first", circles_first)] {
+        let mut s = new_sketch();
+        run(&mut s, "sketch.rectangle.two_point", json!({"p0": [0, 0], "p1": [100, 50]}));
+        for c in [[0, 0], [100, 0], [100, 50], [0, 50]] {
+            run(&mut s, "sketch.circle.center", json!({"center": c, "radius": 25}));
+        }
+        for (curve, at) in trims {
+            run(&mut s, "sketch.trim", json!({"curve": curve, "at": at}));
+        }
+        let sk = sketch(&s);
+        let ends = solidcraft_sketch::loose_ends(&sk);
+        assert!(ends.is_empty(), "{name}: loose ends {ends:?}");
+        assert_eq!(profiles(&s).len(), 1, "{name}");
+        // Dragging one circle's centre keeps the outline closed.
+        run(&mut s, "sketch.drag", json!({"entity": "c4.center", "from": [0, 50], "to": [-3, 52]}));
+        assert!(solidcraft_sketch::loose_ends(&sketch(&s)).is_empty(), "{name}: the touch point held after a drag");
+    }
+}
+
 /// A point midway between an offset output and its source, inside the wall they bound.
 fn inside_offset_wall(s: &Session, output: &str) -> Vec2 {
     let sk = sketch(s);

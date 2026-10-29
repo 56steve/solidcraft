@@ -173,20 +173,35 @@ fn cut_points(sk: &Sketch, ci: usize) -> Vec<(f64, Vec2, usize)> {
         for q in pts {
             if (other_infinite || on_bounded(&other, q).is_some())
                 && let Some(t) = on_bounded(&sh, q)
-                && !out.iter().any(|(_, x, _)| x.dist(q) < TOL * 10.0)
             {
-                out.push((t, q, oi));
+                add_cut(sk, &mut out, (t, q, oi));
             }
         }
     }
     for (q, oi) in super::sketch_freeform::analytic_cut_points(sk, ci) {
-        if let Some(t) = on_bounded(&sh, q)
-            && !out.iter().any(|(_, x, _)| x.dist(q) < TOL * 10.0)
-        {
-            out.push((t, q, oi));
+        if let Some(t) = on_bounded(&sh, q) {
+            add_cut(sk, &mut out, (t, q, oi));
         }
     }
     out
+}
+
+/// One cut per place. Where several curves cut at one place, the one with an end there is kept:
+/// [`pin`] makes the new end coincident with it. Pinned onto a curve passing through instead,
+/// the end came loose when a later trim removed that curve: two circles touching where a
+/// rectangle's side crossed them came apart once the side was trimmed away (#8612).
+fn add_cut(sk: &Sketch, out: &mut Vec<(f64, Vec2, usize)>, cut: (f64, Vec2, usize)) {
+    let ends_at = |oi: usize, q: Vec2| {
+        sk.curves
+            .get(oi)
+            .and_then(|c| c.kind.ends())
+            .is_some_and(|(a, b)| [a, b].iter().any(|e| sk.point(*e).is_some_and(|p| p.dist(q) < TOL * 10.0)))
+    };
+    match out.iter_mut().find(|(_, x, _)| x.dist(cut.1) < TOL * 10.0) {
+        Some(known) if !ends_at(known.2, known.1) && ends_at(cut.2, cut.1) => known.2 = cut.2,
+        Some(_) => {}
+        None => out.push(cut),
+    }
 }
 
 /// Constrain a new end point onto the curve that cut there.
