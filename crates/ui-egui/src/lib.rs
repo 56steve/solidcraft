@@ -1032,8 +1032,9 @@ impl SolveApp {
         self.big_operation |= now_ms() - t0 >= recovery_ui::BIG_OPERATION_MS;
         let done = self.command_completed(id, r);
         // Render focus already applies its semantic selection after clearing object picks.
+        // A tab switch brings in the other design's own Render selection.
         if done.is_ok()
-            && id != "view.render_select"
+            && !matches!(id, "view.render_select" | "view.next_tab" | "view.previous_tab")
             && (self.session.selection != selected_before || matches!(id, "select.set" | "select.clear" | "select.same_look"))
         {
             self.render_workspace.view.selection = if self.session.selection.is_empty() {
@@ -1079,6 +1080,7 @@ impl SolveApp {
                 "view.navigation_bar" => {
                     self.ui.show_navigation_bar = v.get("visible").and_then(Value::as_bool).unwrap_or(!self.ui.show_navigation_bar)
                 }
+                "view.next_tab" | "view.previous_tab" => documents::cycle(self, id == "view.next_tab"),
                 _ => {}
             }
             if id == "view.render_inspector" {
@@ -1384,7 +1386,17 @@ impl SolveApp {
             return;
         }
         // A display toggle leaves the current modelling tool and camera in place.
-        if matches!(id, "view.fit" | "view.home" | "view.spin" | "view.grid" | "view.ground_shadow" | "view.navigation_bar") {
+        if matches!(
+            id,
+            "view.fit"
+                | "view.home"
+                | "view.spin"
+                | "view.grid"
+                | "view.ground_shadow"
+                | "view.navigation_bar"
+                | "view.next_tab"
+                | "view.previous_tab"
+        ) {
             let _ = self.run(id, json!({}));
             return;
         }

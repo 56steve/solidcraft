@@ -68,6 +68,23 @@ pub struct AngleReadoutResult {
     pub param_warnings: Vec<String>,
 }
 
+/// `view.next_tab` and `view.previous_tab` take no parameters (#8565).
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct TabStepParams {}
+
+/// What `view.next_tab` and `view.previous_tab` return. The window shows the design tab `step`
+/// places along the strip, going round at either end; the design is not changed and nothing is
+/// added to undo.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TabStep {
+    /// 1: the tab to the right; -1: the tab to the left.
+    pub step: i8,
+    /// In the warn parameter-check mode: what the call's parameters got wrong.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub param_warnings: Vec<String>,
+}
+
 #[cfg(test)]
 #[path = "view_navigation_tests.rs"]
 mod tests;

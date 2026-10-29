@@ -238,6 +238,8 @@ fn execute(app: &mut SolveApp, id: &str, params: Value) -> Result<Value, String>
                 | "view.grid"
                 | "view.ground_shadow"
                 | "view.navigation_bar"
+                | "view.next_tab"
+                | "view.previous_tab"
                 | "view.layout"
                 | "view.navigate"
                 | "view.ambient_occlusion"
@@ -272,9 +274,9 @@ const MAX_BATCH: usize = 10_000;
 /// bypass.
 const LOADS_A_FILE: [&str; 4] = ["doc.open", "file.insert_step", "file.insert_mesh", "pointcloud.insert"];
 
-/// Edit in Place and Finish Edit go to another design's tab: a batch's rollback, or a script's
-/// later steps, would land in the wrong design.
-const SWITCHES_DESIGN: [&str; 2] = ["component.edit_in_place", "component.finish_edit"];
+/// Edit in Place, Finish Edit and the next or previous tab go to another design's tab: a batch's
+/// rollback, or a script's later steps, would land in the wrong design.
+const SWITCHES_DESIGN: [&str; 4] = ["component.edit_in_place", "component.finish_edit", "view.next_tab", "view.previous_tab"];
 
 /// `command` names the command `id`, in any of the spellings the engine takes.
 fn is_command(command: Option<&str>, id: &str) -> bool {

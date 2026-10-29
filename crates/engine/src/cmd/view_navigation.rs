@@ -4,12 +4,13 @@ use solidcraft_render::{Camera, StandardView};
 
 use super::CommandSpec;
 use crate::params::{bad, num, req_vec2, req_vec3, vec3};
-use crate::schema::view_navigation::{RenderBrowser, RenderFocus};
+use crate::schema::view_navigation::{RenderBrowser, RenderFocus, TabStep, TabStepParams};
 use crate::schema::{TypedContract, output_schema_for};
 use crate::{Result, Sel, Session};
 
 const FOCUS_CONTRACT: TypedContract<RenderFocus> = TypedContract::new();
 const BROWSER_CONTRACT: TypedContract<RenderBrowserRequest> = TypedContract::new();
+const TAB_STEP_CONTRACT: TypedContract<TabStepParams> = TypedContract::new();
 
 // Both existing request forms share the Browser command and its published schema.
 #[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -100,7 +101,13 @@ CommandSpec::new("view.left", "Left View", left).icon("camera").noundo().key("Ct
 CommandSpec::new("view.right", "Right View", right).icon("camera").noundo().key("Ctrl+4").params(STANDARD_PARAMS),
 CommandSpec::new("view.top", "Top View", top).icon("camera").noundo().key("Ctrl+5").params(STANDARD_PARAMS),
 CommandSpec::new("view.bottom", "Bottom View", bottom).icon("camera").noundo().key("Ctrl+6").params(STANDARD_PARAMS),
-CommandSpec::new("view.isometric", "Isometric View", isometric).icon("camera").noundo().key("Ctrl+7").params(STANDARD_PARAMS)];
+CommandSpec::new("view.isometric", "Isometric View", isometric).icon("camera").noundo().key("Ctrl+7").params(STANDARD_PARAMS),
+CommandSpec::new("view.next_tab", "Next Tab", crate::checked!("view.next_tab", next_tab))
+    .icon("chevron_right").noundo().doc_only().key("Ctrl+Tab").contract(&TAB_STEP_CONTRACT).output(output_schema_for::<TabStep>)
+    .params("no parameters → step: 1; the window shows the design tab to the right of the shown one (after the last, the first); never edits the design or opens a dialog"),
+CommandSpec::new("view.previous_tab", "Previous Tab", crate::checked!("view.previous_tab", previous_tab))
+    .icon("chevron_right").noundo().doc_only().key("Ctrl+Shift+Tab").contract(&TAB_STEP_CONTRACT).output(output_schema_for::<TabStep>)
+    .params("no parameters → step: -1; the window shows the design tab to the left of the shown one (before the first, the last); never edits the design or opens a dialog")];
 
 const STANDARD_PARAMS: &str = "camera?: Camera (default: current session camera or home view) → camera; turns to that standard view as the view cube does, keeping target, distance and projection";
 
@@ -893,6 +900,19 @@ fn angle_readout(_s: &mut Session, p: &Value) -> Result<Value> {
     let enabled = p.get("enabled").and_then(Value::as_bool).ok_or_else(|| bad("view.angle_readout", "`enabled` must be a boolean"))?;
     let reply = crate::schema::view_navigation::AngleReadoutResult { enabled, param_warnings: Vec::new() };
     serde_json::to_value(reply).map_err(|e| crate::EngineError::Other(e.to_string()))
+}
+
+fn next_tab(_s: &mut Session, _p: &Value) -> Result<Value> {
+    tab_step(1)
+}
+
+fn previous_tab(_s: &mut Session, _p: &Value) -> Result<Value> {
+    tab_step(-1)
+}
+
+/// The engine holds one design: the window, which holds the tabs, makes the step (#8565).
+fn tab_step(step: i8) -> Result<Value> {
+    serde_json::to_value(TabStep { step, param_warnings: Vec::new() }).map_err(|e| crate::EngineError::Other(e.to_string()))
 }
 
 #[cfg(test)]
