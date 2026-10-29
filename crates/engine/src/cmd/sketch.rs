@@ -355,8 +355,9 @@ fn settle(strict: bool, rep: SolveReport, sk: &mut Sketch, unsolved: Sketch) -> 
 }
 
 /// The first line or circle that solving `before` into `after` shrank to a point: longer (or
-/// wider) than 1e-3 before and shorter than 1e-6 after. A length a dimension asks for is never
-/// that short.
+/// wider) than 1e-3 before and shorter than 1e-5 after. A length a dimension asks for is never
+/// that short. 1e-6 let a side squeezed to 1.2e-6 by one solve through, and the next solve
+/// took it the rest of the way.
 fn shrunk(before: &Sketch, after: &Sketch) -> Option<String> {
     let size = |sk: &Sketch, i: usize| match sk.curves.get(i).map(|c| &c.kind) {
         Some(CurveKind::Line { .. }) => line_pts(sk, i).map(|(a, b)| a.dist(b)),
@@ -364,7 +365,7 @@ fn shrunk(before: &Sketch, after: &Sketch) -> Option<String> {
         _ => None,
     };
     (0..before.curves.len().min(after.curves.len()))
-        .find(|&i| matches!((size(before, i), size(after, i)), (Some(b), Some(a)) if b > 1e-3 && a < 1e-6))
+        .find(|&i| matches!((size(before, i), size(after, i)), (Some(b), Some(a)) if b > 1e-3 && a < 1e-5))
         .and_then(|i| after.curves.get(i).map(|c| c.id.clone()))
 }
 

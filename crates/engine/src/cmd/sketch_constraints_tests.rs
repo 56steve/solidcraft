@@ -1299,6 +1299,27 @@ fn a_constraint_that_would_shrink_a_rectangle_to_a_point_is_refused() {
     }
 }
 
+/// Two rectangles, a corner of one made coincident with a corner of the other and then a second
+/// pair of corners made coincident: one solve squeezed a 49 mm side to about 1.2e-6 mm, just
+/// longer than the check took for a point, and the next took it the rest of the way, so the
+/// constraint was taken (found by a local sketch fuzzer).
+#[test]
+fn a_constraint_that_squeezes_a_side_to_a_hair_is_refused() {
+    let mut s = new_sketch();
+    for (id, p) in [
+        ("sketch.rectangle.two_point", json!({"p0": [27, 29], "p1": [1, 19]})),
+        ("sketch.rectangle.two_point", json!({"p0": [23, -8], "p1": [-21, -20]})),
+        ("sketch.constraint.perpendicular", json!({"a": "l5", "b": "l4"})),
+        ("sketch.constraint.coincident", json!({"a": "p5", "b": "p1"})),
+    ] {
+        run(&mut s, id, p);
+    }
+    let before = sketch(&s);
+    let e = s.execute("sketch.constraint.coincident", &json!({"a": "p6", "b": "p3"})).unwrap_err().to_string();
+    assert!(e.contains("shrink") && e.contains("to a point"), "{e}");
+    assert_eq!(sketch(&s), before);
+}
+
 #[test]
 fn coincident_circles_lie_on_each_other() {
     let mut s = new_sketch();
