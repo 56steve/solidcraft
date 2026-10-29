@@ -1229,6 +1229,10 @@ preference_settings! {
     suppress_sketch_snap: ModifierCombo = ModifierCombo::CTRL_ALT, PAGE_SKETCH;
     /// Temporary horizontal/vertical guides from hovered centres and edge midpoints.
     sketch_tracking_guides: bool = true, PAGE_SKETCH;
+    /// Drawing lines a point up with the sketch's points on both axes at once, keeping the
+    /// horizontal or vertical snap to the previous point, and the click adds the alignments
+    /// (#7828). Off by default: only with the previous point, one axis at a time, as before.
+    sketch_align_points: bool = false, PAGE_SKETCH;
     /// Open Project's options before picking; off restores its previous direct-pick workflow.
     project_options_dialog: bool = true, PAGE_SKETCH;
     /// Whether Alt/Option also frees gizmo / canvas manipulator arrows (Primary always does).
@@ -4806,6 +4810,7 @@ mod tests {
             ("suppress_sketch_snap", json!(ModifierCombo::NONE), PAGE_SKETCH),
             ("sketch_state_icons", json!(false), PAGE_SKETCH),
             ("sketch_tracking_guides", json!(false), PAGE_SKETCH),
+            ("sketch_align_points", json!(true), PAGE_SKETCH),
             ("msaa", json!(8), PAGE_GRAPHICS),
             ("single_surface_analysis", json!(false), PAGE_GRAPHICS),
         ];
