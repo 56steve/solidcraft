@@ -2468,6 +2468,30 @@ fn several_texts_edit_in_one_rebuild() {
     assert!((v1 / v0 - 2.0).abs() < 0.05, "two bars per label now: {v0} -> {v1}");
 }
 
+/// Two ends tied to each other only through a third curve's end stay tied when a trim takes
+/// that curve away: they still meet there (found by a local trim fuzzer: two rectangles'
+/// corners made coincident with one arc end came apart when the arc was trimmed).
+#[test]
+fn ends_tied_through_a_trimmed_away_end_stay_tied() {
+    let mut s = new_sketch();
+    for (a, b) in [([0, 0], [10, 0]), ([10, 0], [10, 10]), ([10, 0], [20, 5])] {
+        run(&mut s, "sketch.line", json!({"points": [a, b], "infer": false, "connect": false}));
+    }
+    run(&mut s, "sketch.constraint.coincident", json!({"a": "l1.end", "b": "l3.start"}));
+    run(&mut s, "sketch.constraint.coincident", json!({"a": "l2.start", "b": "l3.start"}));
+    assert!(solidcraft_sketch::loose_ends(&sketch(&s)).untied.is_empty());
+    let r = run(&mut s, "sketch.trim", json!({"curve": "l3", "at": [15, 2.5]}));
+    assert_eq!(r["result"]["deleted"], "l3");
+    let sk = sketch(&s);
+    let ends = solidcraft_sketch::loose_ends(&sk);
+    assert!(ends.untied.is_empty(), "l1 and l2 still meet at (10, 0): {ends:?}");
+    // Tied, not merely touching: dragging one end takes the other along.
+    run(&mut s, "sketch.drag", json!({"entity": "l1.end", "from": [10, 0], "to": [12, 1]}));
+    let sk = sketch(&s);
+    let at = |r: &str| sk.point(sk.resolve_point(r).unwrap()).unwrap();
+    assert!(at("l1.end").dist(at("l2.start")) < 1e-9);
+}
+
 #[test]
 fn trim_keeps_the_rest_of_a_dimensioned_line_where_it_was() {
     // A 40 x 40 square, its right side dimensioned with the Dimension tool (a line length).
