@@ -4142,13 +4142,16 @@ pub fn show(app: &mut SolveApp, ui: &mut egui::Ui) {
     // events. Testing delta made the highlight reappear whenever a held drag paused.
     // Resolve it before rendering so the GPU scene and screen overlays use the same hit.
     // A 3D mouse moving the view is not such a gesture: the pointer hand is free, and hover
-    // and clicks keep picking while the other hand turns the view.
+    // and clicks keep picking while the other hand turns the view. Nor is a left press held
+    // still under a mode lit in the navigation bar or a held Space: they own drags, and the
+    // press may be opening Select Other (#8864); once it drags, `mode` says so. A preset's
+    // left-button binding or Ctrl+left orbit navigates from the press on.
     let navigating = scroll != 0.0
         || pinch != 1.0
         || pan != egui::Vec2::ZERO
         || middle
         || secondary_down
-        || (primary_nav.is_some() && primary_down)
+        || (app.viewport.primary_nav.is_some() && primary_down)
         || mode.is_some()
         || app.viewport.axis_drag.is_some()
         || app.viewport.spin
@@ -8526,8 +8529,16 @@ mod tests {
                 hover_frame(&mut app, &ctx, vec![egui::Event::PointerMoved(p)]);
                 assert!(app.viewport.hover.is_some());
                 hover_frame(&mut app, &ctx, vec![egui::Event::PointerButton { pos: p, button, pressed: true, modifiers: Default::default() }]);
-                assert!(app.viewport.hover.is_none(), "hover on navigation press");
-                for offset in [1.0, 2.0, 3.0] {
+                // The lit mode owns drags, not a press held still (which may be opening Select
+                // Other, #8864): the highlight stays until the press drags.
+                let lit = button == egui::PointerButton::Primary;
+                assert_eq!(app.viewport.hover.is_some(), lit, "hover on a {button:?} press");
+                if lit {
+                    hover_frame(&mut app, &ctx, vec![egui::Event::PointerMoved(p + vec2(1.0, 0.0))]);
+                    assert!(app.viewport.hover.is_some(), "a press within click distance is still");
+                }
+                let offsets = if lit { [20.0, 21.0, 22.0] } else { [1.0, 2.0, 3.0] };
+                for offset in offsets {
                     hover_frame(&mut app, &ctx, vec![egui::Event::PointerMoved(p + vec2(offset, 0.0))]);
                     assert!(app.viewport.hover.is_none(), "hover while moving");
                     for _ in 0..3 {
