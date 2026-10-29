@@ -939,6 +939,11 @@ fn timeline_contents(app: &mut SolveApp, ui: &mut egui::Ui, floating: bool) {
                     p.circle_filled(pos2(br.center().x, br.bottom() + t.space_3), t.space_2, accent.color);
                 }
                 let mut tip = status_text(name, ty, err.as_deref(), warn.as_deref());
+                // Greyed out says only "not shown": say why (#8100).
+                if rolled {
+                    tip.push('\n');
+                    tip.push_str(crate::i18n::tr("timeline.feature_rolled_back"));
+                }
                 if let Some(state) = sketch_state {
                     tip.push('\n');
                     tip.push_str(&state.text());

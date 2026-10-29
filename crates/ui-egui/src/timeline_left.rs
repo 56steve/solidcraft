@@ -1519,6 +1519,10 @@ fn feature_row(app: &mut SolveApp, ui: &mut egui::Ui, rows: &mut Rows, index: us
         if error.is_some() || warning.is_some() {
             tip.push_str(&format!("\n{}", crate::timeline::status_text(name, ty, error.as_deref(), warning.as_deref())));
         }
+        // Greyed out says only "not shown": say why (#8100).
+        if rolled {
+            tip.push_str(&format!("\n{}", crate::i18n::tr("timeline.feature_rolled_back")));
+        }
         if let Some(state) = sketch_state {
             tip.push_str(&format!("\n{}", state.text()));
         }

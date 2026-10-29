@@ -1131,6 +1131,13 @@ impl SolveApp {
                     self.ui.show_navigation_bar = v.get("visible").and_then(Value::as_bool).unwrap_or(!self.ui.show_navigation_bar)
                 }
                 "view.next_tab" | "view.previous_tab" => documents::cycle(self, id == "view.next_tab"),
+                // An edit OK'd on a feature behind the history marker changes nothing in the view:
+                // say why, or the edit looks as if it had silently failed (#8100).
+                "timeline.redefine" if v.get("rolled_back").and_then(Value::as_bool) == Some(true) => {
+                    let feature = v.get("feature").and_then(Value::as_u64).and_then(|f| self.session.doc.feature(f));
+                    let name = feature.map(|f| f.name.clone()).unwrap_or_default();
+                    self.set_status(i18n::format("timeline.edited_rolled_back", &[("name", &name)]), false);
+                }
                 _ => {}
             }
             if id == "view.render_inspector" {
