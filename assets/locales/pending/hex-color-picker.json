@@ -1,0 +1,42 @@
+{
+  "en": {
+    "color.hex": "Hex",
+    "color.hex_help": "Enter #rrggbb or #rrggbbaa; six digits preserve opacity",
+    "color.hex_hint": "#rrggbb"
+  },
+  "ar": {
+    "color.hex": "Hex",
+    "color.hex_help": "Enter #rrggbb or #rrggbbaa; six digits preserve opacity",
+    "color.hex_hint": "#rrggbb"
+  },
+  "de": {
+    "color.hex": "Hex",
+    "color.hex_help": "#rrggbb oder #rrggbbaa eingeben; sechs Ziffern behalten die Deckkraft bei",
+    "color.hex_hint": "#rrggbb"
+  },
+  "he": {
+    "color.hex": "Hex",
+    "color.hex_help": "Enter #rrggbb or #rrggbbaa; six digits preserve opacity",
+    "color.hex_hint": "#rrggbb"
+  },
+  "ja": {
+    "color.hex": "Hex",
+    "color.hex_help": "#rrggbb または #rrggbbaa を入力。6 桁の場合は不透明度を維持",
+    "color.hex_hint": "#rrggbb"
+  },
+  "ko": {
+    "color.hex": "Hex",
+    "color.hex_help": "#rrggbb 또는 #rrggbbaa 입력. 6자리 값은 불투명도 유지",
+    "color.hex_hint": "#rrggbb"
+  },
+  "vi": {
+    "color.hex": "Hex",
+    "color.hex_help": "Enter #rrggbb or #rrggbbaa; six digits preserve opacity",
+    "color.hex_hint": "#rrggbb"
+  },
+  "zh": {
+    "color.hex": "Hex",
+    "color.hex_help": "输入 #rrggbb 或 #rrggbbaa；六位数保留不透明度",
+    "color.hex_hint": "#rrggbb"
+  }
+}

@@ -168,7 +168,7 @@ table. Panel/Window/Confirm compositions also have dedicated geometry and intera
 | `length_field`, `angle_field` | Length in design units, angle in degrees | form control/font tokens |
 | `slider` + `Slider` options | One token-painted track/thumb over native slider/value interaction; optional step, caller formatting, whole-step manipulation and hidden value editor | `control_height`, `space_24/8/4/2`, form control/font tokens |
 | `placement_field` | Stable focus ID; drawing tool owns Enter/Tab validation and completion | `control_fill`, `font_body`, `text`, `control_height`, spacing |
-| `color_field`, `color_popover` | Opaque document RGB swatch and kit popover; global U8/F segments, copy, gamma-byte or linear RGB fields, painter-drawn HSV square/hue and current strip; outside click dismisses | `control_*`, `form_*`, `border`, `on_accent`, `space_*` |
+| `color_field`, `color_field_with_opacity`, `mixed_color_field`, `color_popover` | Document RGB swatch and kit popover; global U8/F/Hex segments, active-format copy, gamma-byte or linear RGB fields or one Hex editor, painter-drawn HSV square/hue and current strip; outside click dismisses. The opacity-aware field edits the caller's separate `f64` opacity, never premultiplied RGB. Six Hex digits preserve exact opacity; eight set alpha to `aa / 255`. RGB-only callers reject non-FF alpha without applying RGB. Incomplete text remains editable without changing the last valid colour. The mixed-aware wrapper adds a non-editable label and reports accepting the first colour as an edit, so the caller can set all selected targets. | `control_*`, `form_*`, `border`, `on_accent`, `space_*` |
 | choice: `segmented`, `Segments` | Equal text choices; `states` supplies mixed selection, `enabled` keeps unsupported choices faded and inert, `disabled_reasons` also disables choices and supplies hover explanations, `compact` clips instead of falling back to a dropdown, `primary` uses accent/on-accent for the selected segment | `control_*`, `selected_bg/ink`, `font_label`, `space_4/8` |
 | `segmented_icons`, `IconSegment` | Equal icon choices and mixed states | segment tokens, icon palette |
 | `checkbox`, `checkbox_indeterminate`, `checkbox_row`, `checkbox_grid`, `options` | One box/tick painter for inline, mixed, full-row, grid and menu choices | `space_14/3/2`, `radius_sm`, `control_fill/border`, `form_primary/ink`, `hover`, `on_accent` |
@@ -753,7 +753,9 @@ while the kit owns every dimension, colour and inset.
 
 The Appearance Inspector uses the shared `inspector_header` (selection icon/name,
 workspace chip, Menu and close action) and `Panel::editor_footer` (48 pt pinned
-band). `color_hex_field` pairs the colour popover with a bounded hex editor;
+band). `mixed_color_field` uses the one shared colour popover with a non-editable
+mixed-value label, not an outer Hex editor. Non-PBR Appearance passes exact opacity;
+PBR passes no opacity and remains opaque. All Hex parsing and draft state stay in the kit.
 `mixed_slider` pairs the standard slider with the mixed-aware scalar editor.
 `editor_section` uses a 24 pt heading and 6 pt field gaps.
 `workspace_chip`, `text_button`, `section_heading`, `pending_section`,

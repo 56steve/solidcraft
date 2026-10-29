@@ -186,9 +186,6 @@ const ELEMENTS: &[Element] = &[
     element!("text_button", |ui, _| {
         text_button(ui, "Reset", true);
     }),
-    element!("color_hex_field", |ui, _| {
-        color_hex_field(ui, &mut [52, 92, 160], None);
-    }),
     element!("mixed_slider", |ui, _| {
         mixed_slider(ui, &mut 0.5, 0.0..=1.0, None);
     }),
@@ -1094,6 +1091,12 @@ const ELEMENTS: &[Element] = &[
     }),
     element!("color_field", |ui, _| {
         color_field(ui, &mut [120, 150, 180]);
+    }),
+    element!("color_field_with_opacity", |ui, _| {
+        color_field_with_opacity(ui, &mut [120, 150, 180], &mut 0.5);
+    }),
+    element!("mixed_color_field", |ui, _| {
+        mixed_color_field(ui, &mut [120, 150, 180], Some(&mut 0.5), Some("Mixed"));
     }),
     element!("slider", |ui, _| {
         slider(ui, &mut 0.5, 0.0..=1.0, Default::default());

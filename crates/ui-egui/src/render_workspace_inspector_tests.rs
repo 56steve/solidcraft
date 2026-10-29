@@ -1532,7 +1532,8 @@ fn appearance_inspector_hex_edits_validate_and_commit_once() {
     h.frames(3);
     let before = h.app.session.doc.to_json();
     let undo = h.app.session.undo.len();
-    let hex = format!("dialog:color_hex:{}", h.app.tr("render.inspector_colour"));
+    appearance_picker_open(&mut h);
+    let hex = "color:hex";
     h.step(&json!({"click":{"handle":hex}})).unwrap();
     h.step(&json!({"key":"A","cmd":true,"ctrl":true})).unwrap();
     h.step(&json!({"text":"#GG0000"})).unwrap();
@@ -1550,6 +1551,9 @@ fn appearance_inspector_hex_edits_validate_and_commit_once() {
     h.app.session.selection.push(Sel::Body { name: "Other".into() });
     h.frames(3);
     let mixed_before = h.app.session.doc.to_json();
+    if crate::scenario::handle_at(hex).is_none() {
+        appearance_picker_open(&mut h);
+    }
     h.step(&json!({"click":{"handle":hex}})).unwrap();
     h.step(&json!({"key":"Tab"})).unwrap();
     assert_eq!(h.app.session.doc.to_json(), mixed_before);
@@ -1558,6 +1562,128 @@ fn appearance_inspector_hex_edits_validate_and_commit_once() {
     h.step(&json!({"text":"#123456"})).unwrap();
     h.step(&json!({"key":"Enter"})).unwrap();
     assert_eq!(h.app.session.doc.appearances.bodies["Other"].color, [0x12, 0x34, 0x56]);
+}
+
+fn appearance_picker_open(h: &mut Harness) {
+    h.step(&json!({"click":{"handle":format!("dialog:color:{}", h.app.tr("render.inspector_colour"))}})).unwrap();
+    h.frames(2);
+    h.step(&json!({"click":{"handle":"color:format:Hex"}})).unwrap();
+}
+
+fn appearance_picker_paste(h: &mut Harness, text: &str) {
+    h.step(&json!({"click":{"handle":"color:hex"}})).unwrap();
+    h.step(&json!({"key":"A","cmd":true,"ctrl":true})).unwrap();
+    h.frame_with(vec![egui::Event::Paste(text.into())]);
+}
+
+#[test]
+fn appearance_inspector_shared_picker_preserves_exact_opacity_and_commits_alpha() {
+    use solidcraft_engine::Sel;
+    let mut h = fixture();
+    h.app.run("appearance.assign", json!({"bodies":["Subject"],"color":"#abcdef","opacity":0.123456,"appearance":"Tint"})).unwrap();
+    h.app.session.selection = vec![Sel::Body { name: "Subject".into() }];
+    h.app.run("view.render_stage", json!({"stage":"look"})).unwrap();
+    h.frames(3);
+    let mass = h.app.run("component.properties", json!({})).unwrap();
+    appearance_picker_open(&mut h);
+    let before = h.app.session.doc.to_json();
+    let undo = h.app.session.undo.len();
+    for mode in ["F", "U8", "Hex"] {
+        h.step(&json!({"click":{"handle":format!("color:format:{mode}")}})).unwrap();
+        let draft = h.app.render_workspace.view.inspector.selection_appearance.draft().unwrap();
+        assert_eq!((draft.color, draft.opacity, draft.pbr), ([171, 205, 239], 0.123456, None));
+    }
+    for text in ["#abc", "#abcdefz0"] {
+        appearance_picker_paste(&mut h, text);
+        h.frames(2);
+        let draft = h.app.render_workspace.view.inspector.selection_appearance.draft().unwrap();
+        assert_eq!((draft.color, draft.opacity), ([171, 205, 239], 0.123456));
+        assert!(h.widget(text).is_some(), "invalid text remains editable inside the picker");
+        assert_eq!(h.app.session.doc.to_json(), before);
+        assert_eq!(h.app.session.undo.len(), undo);
+    }
+    for (text, color, opacity) in [
+        ("#0102fe", [1, 2, 254], 0.123456),
+        ("#0102fe80", [1, 2, 254], 128.0 / 255.0),
+        ("#fE8001", [254, 128, 1], 128.0 / 255.0),
+        ("#22334400", [34, 51, 68], 0.0),
+    ] {
+        let before = h.app.session.doc.to_json();
+        let undo = h.app.session.undo.len();
+        appearance_picker_paste(&mut h, text);
+        let draft = h.app.render_workspace.view.inspector.selection_appearance.draft().unwrap();
+        assert_eq!((draft.color, draft.opacity, draft.pbr), (color, opacity, None), "{text} updates the exact draft immediately");
+        assert_eq!(h.app.session.doc.to_json(), before, "typing does not commit the model");
+        assert_eq!(h.app.session.undo.len(), undo);
+        h.step(&json!({"key":"Enter"})).unwrap();
+        h.frames(2);
+        let look = &h.app.session.doc.appearances.bodies["Subject"];
+        assert_eq!((look.color, look.opacity, look.pbr), (color, opacity, None));
+        assert_eq!(h.app.session.undo.len(), undo + 1, "one committed edit for {text}");
+    }
+    assert_eq!(h.app.run("component.properties", json!({})).unwrap(), mass);
+}
+
+#[test]
+fn appearance_inspector_shared_picker_pbr_rejects_nonopaque_alpha() {
+    use solidcraft_engine::Sel;
+    let mut h = fixture();
+    h.app
+        .run("appearance.assign", json!({"bodies":["Subject"],"color":"#123456", "pbr":{"metallic":0.2,"roughness":0.4,"dielectric_ior":1.6}}))
+        .unwrap();
+    h.app.session.selection = vec![Sel::Body { name: "Subject".into() }];
+    h.app.run("view.render_stage", json!({"stage":"look"})).unwrap();
+    h.frames(3);
+    let before = h.app.session.doc.to_json();
+    let undo = h.app.session.undo.len();
+    let pbr = h.app.session.doc.appearances.bodies["Subject"].pbr;
+    appearance_picker_open(&mut h);
+    for text in ["#abcdef80", "#abcdef00"] {
+        appearance_picker_paste(&mut h, text);
+        let draft = h.app.render_workspace.view.inspector.selection_appearance.draft().unwrap();
+        assert_eq!((draft.color, draft.opacity, draft.pbr), ([18, 52, 86], 1.0, pbr));
+        assert!(h.widget(text).is_some());
+        h.step(&json!({"key":"Enter"})).unwrap();
+        assert_eq!(h.app.session.doc.to_json(), before);
+        assert_eq!(h.app.session.undo.len(), undo);
+    }
+    appearance_picker_paste(&mut h, "#abcdefFF");
+    h.step(&json!({"key":"Enter"})).unwrap();
+    let look = &h.app.session.doc.appearances.bodies["Subject"];
+    assert_eq!((look.color, look.opacity, look.pbr), ([171, 205, 239], 1.0, pbr));
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+}
+
+#[test]
+fn appearance_inspector_shared_picker_has_no_outer_hex_editor_and_keeps_mixed_values_visible() {
+    use solidcraft_engine::Sel;
+    let mut h = fixture();
+    h.app.run("solid.box", json!({"body_name":"Other","length":5,"width":5,"height":5,"corner":[30,0,0]})).unwrap();
+    for (body, color) in [("Subject", "#123456"), ("Other", "#abcdef")] {
+        h.app.run("appearance.assign", json!({"bodies":[body],"color":color,"opacity":0.123456})).unwrap();
+    }
+    h.app.session.selection = vec![Sel::Body { name: "Subject".into() }, Sel::Body { name: "Other".into() }];
+    h.app.run("view.render_stage", json!({"stage":"look"})).unwrap();
+    h.frames(3);
+    let outer = format!("dialog:color_hex:{}", h.app.tr("render.inspector_colour"));
+    assert!(crate::scenario::handle_at(&outer).is_none(), "Hex editing belongs only inside the shared picker");
+    assert!(crate::scenario::rect_of("dialog:note:color:mixed").is_some(), "mixed colour remains visibly labelled beside the swatch");
+    let before = h.app.session.doc.to_json();
+    let undo = h.app.session.undo.len();
+    appearance_picker_open(&mut h);
+    assert!(crate::scenario::handle_at(&outer).is_none());
+    assert!(crate::scenario::handle_at("color:hex").is_some());
+    h.step(&json!({"click":{"handle":"color:hex"}})).unwrap();
+    h.step(&json!({"key":"Tab"})).unwrap();
+    assert_eq!(h.app.session.doc.to_json(), before, "opening and leaving mixed input is inert");
+    assert_eq!(h.app.session.undo.len(), undo);
+    appearance_picker_paste(&mut h, "#123456");
+    h.step(&json!({"key":"Enter"})).unwrap();
+    for body in ["Subject", "Other"] {
+        let look = &h.app.session.doc.appearances.bodies[body];
+        assert_eq!((look.color, look.opacity, look.pbr), ([18, 52, 86], 0.123456, None));
+    }
+    assert_eq!(h.app.session.undo.len(), undo + 1, "accepting the first colour still sets mixed targets once");
 }
 
 #[test]
