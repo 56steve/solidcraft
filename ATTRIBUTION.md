@@ -608,6 +608,7 @@ Original SolidCraft drawings, Open for owner review; no runtime assignments.
 | assets/icons/ui/design/svg/model/timeline_play.svg | SolidCraft contributors | Original history playback icon; canonical grey_cube base and original action cue | MIT OR Apache-2.0 |
 | assets/icons/ui/design/svg/model/timeline_stop.svg | SolidCraft contributors | Original history playback icon; canonical grey_cube base and original action cue | MIT OR Apache-2.0 |
 | assets/icons/ui/design/svg/flat/status_pin.svg | SolidCraft contributors | Original analytic pin icon for persistent viewport results | MIT OR Apache-2.0 |
+| assets/locales/pending/render-wear.json | SolidCraft contributors | Original UI labels and translations | MIT OR Apache-2.0 |
 
 ## Code adapted from sibling projects
 
