@@ -467,7 +467,9 @@ fn evaluate(s: &mut Session, p: &Value) -> Result<Value> {
         (None, None) => None,
     };
     let (vals, _) = s.doc.param_values();
-    let defaults = expr::Defaults::for_unit(unit.unwrap_or(""), 1.0);
+    // Bare numbers follow the asked-for unit when given, else the design's length unit (#9015).
+    let doc_len = expr::unit_info(s.doc.units.trim()).filter(|(k, _)| *k == Kind::Length).map(|(_, s)| s).unwrap_or(1.0);
+    let defaults = expr::Defaults::for_unit(unit.unwrap_or(""), doc_len);
     let refs = expr::references(&e);
     let lookup = |n: &str| vals.get(n).copied().ok_or_else(|| solidcraft_doc::DocError::Expr(format!("unknown parameter `{n}`")));
     let r = expr::eval_with_defaults(&e, &lookup, defaults).and_then(|v| match kind {

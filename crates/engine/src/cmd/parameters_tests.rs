@@ -1033,6 +1033,18 @@ fn expr_of_now(s: &Session, name: &str) -> String {
     s.doc.param(name).map(|p| p.expr.clone()).unwrap_or_default()
 }
 
+/// #9015: `expr.evaluate` of a length with a bare offset uses the design's units.
+#[test]
+fn expr_evaluate_bare_offsets_follow_design_units() {
+    let mut s = Session::default();
+    run(&mut s, "document.units", json!({"units": "in"}));
+    run(&mut s, "parameters.add", json!({"name": "baseLength", "expression": "76"}));
+    let r = run(&mut s, "expr.evaluate", json!({"expression": "baseLength - 1", "kind": "length"}));
+    assert_eq!(r["ok"], true, "{r}");
+    // 75 in in millimetres (without the fix this was 76 in − 1 mm).
+    assert!((r["value"].as_f64().unwrap_or(0.0) - 75.0 * 25.4).abs() < 1e-9, "{r}");
+}
+
 /// A dimension made as `w = 20` shows `w`; typing `w = 30` over it sets `w` rather than being
 /// refused as a taken name (#4071).
 #[test]
