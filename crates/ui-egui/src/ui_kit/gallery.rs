@@ -145,6 +145,14 @@ const ELEMENTS: &[Element] = &[
             Segments { enabled: &[false, true, false, true], compact: true, ..Default::default() },
         );
     }),
+    element!("read_only_text", |ui, _| {
+        read_only_text(ui, "{\n  \"samples\": 256\n}");
+    }),
+    element!("method_section_sampling", |ui, state| {
+        method_section(ui, "gallery_method", "Path tracing", "GPU", Some("Needs GPU path tracing"), |ui| {
+            checkbox(ui, "Reduce noise", &mut state.checked);
+        });
+    }),
     element!("tree_row_rect", |ui, _| {
         for (index, row) in [
             Row { label: "Objects", ..Default::default() },
@@ -303,6 +311,14 @@ const ELEMENTS: &[Element] = &[
     }),
     element!("check_line_warning", |ui, _s| {
         check_line(ui, "gallery:check_warning", "Transparency approximation", true);
+    }),
+    element!("check_line_error", |ui, _s| {
+        check_status_line(ui, "gallery:check_error", "Image size exceeds the renderer limit", CheckStatus::Error);
+    }),
+    element!("check_status_line", |ui, _| {
+        check_status_line(ui, "gallery:status_ok", "Ready", CheckStatus::Ok);
+        check_status_line(ui, "gallery:status_warning", "Transparency approximation", CheckStatus::Warning);
+        check_status_line(ui, "gallery:status_error", "Image size exceeds the renderer limit", CheckStatus::Error);
     }),
     element!("segmented_unavailable", |ui, s| {
         segmented(
