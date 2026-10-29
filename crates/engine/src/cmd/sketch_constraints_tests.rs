@@ -1183,6 +1183,25 @@ fn undoing_a_defining_dimension_removes_the_parameter_too() {
 /// radius, in one step, and the first stays. It used to be refused ("two curves must both be
 /// straight lines").
 #[test]
+fn coincident_refuses_a_lines_two_ends() {
+    let mut s = new_sketch();
+    run(&mut s, "sketch.line", json!({"points":[[0,0],[60,0]],"infer":false,"connect":false}));
+    run(&mut s, "sketch.line", json!({"points":[[0,20],[60,20]],"infer":false,"connect":false}));
+    // The line would shrink to a point, leaving a later Parallel or Perpendicular on it no
+    // direction to hold.
+    for params in [json!({"a":"l1.start","b":"l1.end"}), json!({"a":"l1.end","b":"l1.start"})] {
+        let before = s.doc.to_json();
+        let undo = s.undo.len();
+        let err = s.execute("sketch.constraint.coincident", &params).unwrap_err().to_string();
+        assert!(err.contains("shrink to a point"), "{params}: {err}");
+        assert_eq!(s.doc.to_json(), before, "{params}");
+        assert_eq!(s.undo.len(), undo, "{params}");
+    }
+    // Ends of two different lines still join.
+    run(&mut s, "sketch.constraint.coincident", json!({"a":"l1.end","b":"l2.end"}));
+}
+
+#[test]
 fn coincident_circles_lie_on_each_other() {
     let mut s = new_sketch();
     run(&mut s, "sketch.circle.center", json!({"center":[0,0],"radius":10}));

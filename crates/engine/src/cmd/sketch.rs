@@ -1936,7 +1936,7 @@ fn c_coincident(s: &mut Session, p: &Value) -> Result<Value> {
         let rep = solve(&mut sk.clone());
         return Ok(json!({"constraint": c.id, "existing": true, "sketch": report_json(&rep)}));
     }
-    constrain(s, p, cmd, |sk| {
+    let pick = |sk: &mut Sketch| -> Result<ConstraintKind> {
         if let Some((a, b)) = line_points {
             return Ok(ConstraintKind::Coincident { p: a, q: b });
         }
@@ -1955,6 +1955,17 @@ fn c_coincident(s: &mut Session, p: &Value) -> Result<Value> {
         }
         let c = curve_or_axis(sk, bref)?.ok_or_else(|| bad(cmd, format!("unknown entity `{bref}`")))?;
         Ok(ConstraintKind::PointOnCurve { p: a, c })
+    };
+    constrain(s, p, cmd, |sk| {
+        let k = pick(sk)?;
+        // A line's two ends on each other shrink it to a point, as a line's own end at its
+        // middle does (see `c_midpoint`).
+        if let ConstraintKind::Coincident { p: a, q: b } = k
+            && sk.curves.iter().any(|c| matches!(c.kind, CurveKind::Line { a: x, b: y } if (x, y) == (a, b) || (x, y) == (b, a)))
+        {
+            return Err(bad(cmd, "a line's two ends can't be coincident: the line would shrink to a point"));
+        }
+        Ok(k)
     })
 }
 
