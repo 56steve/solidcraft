@@ -31,6 +31,8 @@ pub(crate) struct Row<'a> {
     pub(crate) name: bool,
     pub(crate) selected: bool,
     pub(crate) dim: bool,
+    /// What Cut has marked, until Paste moves it: the row has a dashed outline.
+    pub(crate) cut: bool,
     pub(crate) color: Option<Color32>,
     /// Draw the icon in this one colour instead of its artwork (a sketch's solve state, #7245).
     pub(crate) icon_ink: Option<Color32>,
@@ -308,6 +310,11 @@ pub(crate) fn tree_row(ui: &mut egui::Ui, id: egui::Id, row: &Row) -> RowResp {
     let elided = galley.elided;
     crate::scenario::publish_rect(&format!("row_label:{}", row.label), Rect::from_min_size(pos2(x, cy - galley.size().y / 2.0), galley.size()));
     ui.painter().with_clip_rect(ui.painter().clip_rect().intersect(r)).galley(pos2(x, cy - galley.size().y / 2.0), galley, col);
+    if row.cut {
+        let inside = r.shrink2(vec2(t.space_2, t.space_2));
+        let corners = [inside.left_top(), inside.right_top(), inside.right_bottom(), inside.left_bottom(), inside.left_top()];
+        ui.painter().add(egui::Shape::dashed_line(&corners, Stroke::new(1.2, t.text_dim), 4.0, 3.0));
+    }
     let mut bx = (x + lw + 6.0 + name_action_width).min(r.right() - 16.0);
     for b in row.badges {
         let br = Rect::from_center_size(pos2(bx + 6.0, cy), vec2(t.space_12, t.space_12));

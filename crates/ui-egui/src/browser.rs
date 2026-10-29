@@ -1549,6 +1549,8 @@ fn occurrence_rows_inner(
     let own_visible = !on_screen || !app.session.occurrence_hidden(path);
     let selected = on_screen && app.session.selection.iter().any(|s| matches!(s, Sel::Occurrence { path: selected } if selected == path));
     let faded = app.session.active_occurrence_path.as_ref().is_some_and(|p| !path.starts_with(p) && !p.starts_with(path));
+    // A cut component has a dashed outline until Paste moves it.
+    let cut = app.cut.placements.iter().any(|p| p.as_slice() == path);
     let badges: &[&str] = if placement.grounded { &["pin"] } else { &[] };
     app.tree.remember(key);
     let appearance = if crate::render_workspace::active(app) {
@@ -1571,8 +1573,8 @@ fn occurrence_rows_inner(
             count: &appearance.count,
             name: true,
             selected,
-            // A cut component is faded until Paste moves it.
-            dim: faded || !visible || app.cut_placements.iter().any(|p| p.as_slice() == path),
+            dim: faded || !visible,
+            cut,
             radio: Some(active),
             badges,
             mark: acts.lit.placement(&app.session.doc, path, placement.component),
@@ -2647,6 +2649,10 @@ fn entry_row(
         Some(Sel::Body { name }) => app.session.visibility.locked_bodies.contains(name),
         _ => e.locked,
     };
+    // What is cut (a body, a sketch, or a body made by a cut feature) has a dashed
+    // outline until Paste moves it.
+    let cut = (folder == "bodies" && crate::edit_clipboard::body_is_cut(app, &e.key))
+        || matches!(&e.sel, Some(Sel::Feature { id }) if app.cut.features.contains(id));
     let badges: &[&str] = if locked { &["lock"] } else { &[] };
     // Cached with the evaluated model; the preference is read as the row is drawn.
     let sketch_state = e.sketch_state.filter(|_| app.preferences.sketch_state_icons);
@@ -2663,8 +2669,8 @@ fn entry_row(
             label: &e.label,
             name: true,
             selected,
-            // A cut body is faded until Paste moves it.
-            dim: !e.visible || parent_hidden || (folder == "bodies" && app.cut_bodies.contains(&e.key)),
+            dim: !e.visible || parent_hidden,
+            cut,
             color: e.color,
             swatch: appearance.swatch,
             secondary: &appearance.name,

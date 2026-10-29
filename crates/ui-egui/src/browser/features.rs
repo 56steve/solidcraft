@@ -225,6 +225,8 @@ fn feature_row(
     let eye = (is_sketch || !bodies.is_empty()).then_some(visible);
     let status = crate::timeline::feature_status(app, id);
     let tip = status.and_then(|_| crate::timeline::feature_message(app, id));
+    // A cut feature has a dashed outline until Paste moves it.
+    let cut = app.cut.features.contains(&id);
     let r = draw_row(
         ui,
         ui.id().with(("browser_feature", id)),
@@ -236,6 +238,7 @@ fn feature_row(
             label: &label,
             selected,
             dim: dim || (!is_sketch && eye == Some(false)),
+            cut,
             action,
             mark,
             status,

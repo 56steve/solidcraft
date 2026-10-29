@@ -560,8 +560,9 @@ pub struct SolveApp {
     /// Component placements copied with Copy (by path): Paste places new instances of them in
     /// the active component, Paste New (Ctrl+Shift+V) independent copies.
     pub copied_placements: Vec<Vec<u64>>,
-    /// Bodies cut with Cut (by name): they stay until Paste moves them into a component.
-    pub cut_bodies: Vec<String>,
+    /// Components, timeline features and bodies cut with Cut: they stay until Paste moves them
+    /// into a component.
+    pub cut: edit_clipboard::CutSet,
     /// Counts copies and cuts in every open design: the last one is what pastes.
     pub clipboard_stamp: u64,
     /// The copy or cut this design made last (`clipboard_stamp` then): when it isn't the last
@@ -570,8 +571,6 @@ pub struct SolveApp {
     /// The bodies (or components) the last copy or cut took, with the design they were in, to
     /// paste into another design (`component.paste_from_design`).
     pub foreign_copy: Option<std::sync::Arc<solidcraft_engine::ForeignCopy>>,
-    /// Component placements cut with Cut (by path): they stay until Paste moves them.
-    pub cut_placements: Vec<Vec<u64>>,
     /// Esc was already acted on this frame (by the shortcuts), so later handlers skip it.
     pub esc_handled: bool,
     /// When Esc was last pressed (input time): a second press soon after finishes the sketch.
@@ -763,11 +762,10 @@ impl SolveApp {
             copied_bodies: Vec::new(),
             clipboard_text: None,
             copied_placements: Vec::new(),
-            cut_bodies: Vec::new(),
+            cut: Default::default(),
             clipboard_stamp: 0,
             own_clipboard_stamp: 0,
             foreign_copy: None,
-            cut_placements: Vec::new(),
             esc_handled: false,
             last_escape: None,
             status: None,

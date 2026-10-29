@@ -1,0 +1,34 @@
+{
+  "en": {
+    "cmd.browser_reparent": "Move to Component",
+    "cmd.component_move_features": "Move Features to Component"
+  },
+  "ja": {
+    "cmd.browser_reparent": "コンポーネントへ移動",
+    "cmd.component_move_features": "フィーチャーをコンポーネントに移動"
+  },
+  "zh": {
+    "cmd.browser_reparent": "移动到组件",
+    "cmd.component_move_features": "将特征移至组件"
+  },
+  "de": {
+    "cmd.browser_reparent": "In andere Komponente verschieben",
+    "cmd.component_move_features": "Merkmale in Komponente verschieben"
+  },
+  "ko": {
+    "cmd.browser_reparent": "구성 요소로 이동",
+    "cmd.component_move_features": "특성을 구성 요소로 이동"
+  },
+  "ar": {
+    "cmd.browser_reparent": "نقل إلى مكوّن",
+    "cmd.component_move_features": "نقل الميزات إلى مكوّن"
+  },
+  "he": {
+    "cmd.browser_reparent": "העברה לרכיב",
+    "cmd.component_move_features": "העברת פיצ'רים לרכיב"
+  },
+  "vi": {
+    "cmd.browser_reparent": "Chuyển sang Cụm chi tiết",
+    "cmd.component_move_features": "Di chuyển các tính năng vào cụm chi tiết"
+  }
+}

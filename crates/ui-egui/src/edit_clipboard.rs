@@ -8,9 +8,10 @@
 //! them into the active component, where the bodies are (`component.copy_bodies`), or the
 //! selected components and paste new instances of them there (`occurrence.copy`), or with
 //! Ctrl+Shift+V new independent copies (`component.paste_new`), where they are too. Paste pastes
-//! whichever was copied last. Cut on bodies or components only marks them: Paste moves them into
-//! the component (`component.move_bodies`, `occurrence.reparent`, where they are), and a copy or
-//! Esc before that leaves them be. A component placed more than once (an instance) isn't cut.
+//! whichever was copied last. Cut on components, bodies or timeline features only marks them (a
+//! [`CutSet`]): Paste moves them into the component in one step (`browser.reparent`, where
+//! they are), and a copy or Esc before that leaves them be. A component placed more than once (an
+//! instance) isn't cut.
 //!
 //! Copied bodies paste into another design (tab) too, as imported bodies without their history,
 //! and copied components as independent copies with their history (Paste and Paste New alike),
@@ -28,6 +29,26 @@ use serde_json::{Value, json};
 use solidcraft_engine::Sel;
 
 use crate::SolveApp;
+
+/// What Cut marked: components (by placement path), timeline features (by id, sketches included)
+/// and bodies (by name). They stay where they are, shown faded, until Paste moves them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CutSet {
+    pub placements: Vec<Vec<u64>>,
+    pub features: Vec<u64>,
+    pub bodies: Vec<String>,
+}
+
+impl CutSet {
+    pub fn is_empty(&self) -> bool {
+        self.placements.is_empty() && self.features.is_empty() && self.bodies.is_empty()
+    }
+}
+
+/// Whether Cut has marked the body: named itself, or moving with a feature that is marked.
+pub fn body_is_cut(app: &SolveApp, name: &str) -> bool {
+    app.cut.bodies.iter().any(|b| b == name)
+}
 
 /// Leave text for the system clipboard: this app's next frame writes it ([`flush`]).
 fn leave_text(app: &mut SolveApp, text: String) {
@@ -97,8 +118,7 @@ pub(crate) fn drop_stale(app: &mut SolveApp) {
         app.session.sketch_clipboard = None;
         app.copied_bodies.clear();
         app.copied_placements.clear();
-        app.cut_bodies.clear();
-        app.cut_placements.clear();
+        app.cut = CutSet::default();
     }
 }
 
@@ -112,8 +132,7 @@ pub fn can_paste(app: &SolveApp) -> bool {
     } else {
         foreign(app).is_some()
             || !app.session.clipboard.is_empty()
-            || !app.cut_bodies.is_empty()
-            || !app.cut_placements.is_empty()
+            || !app.cut.is_empty()
             || !app.copied_bodies.is_empty()
             || !app.copied_placements.is_empty()
     }
@@ -143,7 +162,7 @@ pub fn pasting_bodies(app: &SolveApp) -> bool {
     app.session.active_sketch.is_none()
         && app.session.clipboard.is_empty()
         && app.linked_design_clipboard.is_none()
-        && (!app.copied_bodies.is_empty() || !app.cut_bodies.is_empty() || foreign_bodies(app))
+        && (!app.copied_bodies.is_empty() || !app.cut.bodies.is_empty() || foreign_bodies(app))
 }
 
 /// [`paste_into`], then what was pasted into `group` of the component's `folder`: a group's menu
@@ -183,8 +202,8 @@ pub fn paste_into_group(app: &mut SolveApp, at: Option<Pos2>, into: Option<(u64,
 pub fn can_paste_into(app: &SolveApp, component: u64) -> bool {
     let placements = if pasting_components(app) {
         &app.copied_placements
-    } else if app.session.clipboard.is_empty() && app.linked_design_clipboard.is_none() && !app.cut_placements.is_empty() {
-        &app.cut_placements
+    } else if app.session.clipboard.is_empty() && app.linked_design_clipboard.is_none() && !app.cut.placements.is_empty() {
+        &app.cut.placements
     } else {
         return can_paste(app);
     };
@@ -202,7 +221,7 @@ fn clear_clipboard(app: &mut SolveApp) {
     replace_clipboard(app);
 }
 
-/// A new copy or cut replaces the copied bodies, components, cut bodies and design (copied
+/// A new copy or cut replaces the copied bodies, components, the cut and design (copied
 /// features and sketch geometry are replaced by the commands that copy them), in this design and
 /// for the others: it is the last one.
 fn replace_clipboard(app: &mut SolveApp) {
@@ -211,19 +230,17 @@ fn replace_clipboard(app: &mut SolveApp) {
     app.foreign_copy = None;
     app.copied_bodies.clear();
     app.copied_placements.clear();
-    app.cut_bodies.clear();
-    app.cut_placements.clear();
+    app.cut = CutSet::default();
     app.linked_design_clipboard = None;
 }
 
-/// Leave bodies that were cut where they are (Esc, or another copy): another design has nothing
-/// of them to paste either.
+/// Leave what was cut where it is (Esc, or another copy): another design has nothing of it to paste
+/// either.
 pub fn drop_cut(app: &mut SolveApp) {
-    if !app.cut_bodies.is_empty() || !app.cut_placements.is_empty() {
+    if !app.cut.is_empty() {
         app.foreign_copy = None;
     }
-    app.cut_bodies.clear();
-    app.cut_placements.clear();
+    app.cut = CutSet::default();
 }
 
 /// A copy (or cut) that can't be done: it says why, and the clipboard is left empty.
@@ -331,43 +348,96 @@ fn placement_cut_refused(app: &SolveApp, placements: &[Vec<u64>]) -> Option<Stri
     None
 }
 
-/// Is there something Cut would cut: sketch geometry in a sketch, otherwise components or bodies
-/// that may move.
+/// What Cut marks for the selection, or why it can't. A selected component takes what it holds
+/// with it, and a selected feature takes the body it is the origin of, so those are left out of the
+/// set (and so are not marked, nor moved on their own): components, features and bodies chosen
+/// together are one move.
+fn cut_set(app: &SolveApp) -> Result<CutSet, String> {
+    let mut set = CutSet { placements: placement_selection(app), features: crate::timeline::selected_feature_ids(app), bodies: body_selection(app) };
+    if set.is_empty() {
+        return Err("Select components, bodies, sketches or timeline features to cut".into());
+    }
+    if !set.placements.is_empty()
+        && let Some(why) = placement_cut_refused(app, &set.placements)
+    {
+        return Err(why);
+    }
+    if !set.bodies.is_empty()
+        && let Some(why) = body_cut_refused(app, &set.bodies)
+    {
+        return Err(why);
+    }
+    let doc = &app.session.doc;
+    // A placement inside another selected one moves with it.
+    let all = set.placements.clone();
+    set.placements.retain(|p| !all.iter().any(|q| q.len() < p.len() && p.starts_with(q)));
+    let held: Vec<u64> = set.placements.iter().filter_map(|p| app.session.occurrence_placement(p).ok()).map(|p| p.component).collect();
+    let inside = |component: u64| held.iter().any(|c| doc.inside_component(component, *c));
+    set.features.retain(|id| doc.feature(*id).is_some_and(|f| !inside(f.component)));
+    let features = set.features.clone();
+    // A body belongs to the feature it depends on first, and moves with it.
+    let origins = app.session.body_origins();
+    let state = app.session.model.state();
+    set.bodies.retain(|b| {
+        state.body(b).is_some_and(|body| {
+            let origin = origins.get(&body.name).copied().unwrap_or(body.feature);
+            !inside(doc.model_body_component(body)) && !features.contains(&origin)
+        })
+    });
+    Ok(set)
+}
+
+/// What Cut says it marked, and how to leave it: "Cut 1 component, 3 features, 1 body (Esc to Cancel)".
+fn cut_summary(set: &CutSet) -> String {
+    let count = |n: usize, one: &str, many: &str| (n > 0).then(|| format!("{n} {}", if n == 1 { one } else { many }));
+    let parts: Vec<String> = [
+        count(set.placements.len(), "component", "components"),
+        count(set.features.len(), "feature", "features"),
+        count(set.bodies.len(), "body", "bodies"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    format!("Cut {} (Esc to Cancel)", parts.join(", "))
+}
+
+/// The names of what `set` marks, for the system clipboard text.
+fn cut_names(app: &SolveApp, set: &CutSet) -> Vec<String> {
+    let placements = set.placements.iter().filter_map(|p| app.session.occurrence_placement(p).ok()).map(|p| p.name);
+    let features = set.features.iter().filter_map(|id| app.session.doc.feature(*id)).map(|f| f.name.clone());
+    placements.chain(features).chain(set.bodies.iter().cloned()).collect()
+}
+
+/// Is there something Cut would cut: sketch geometry in a sketch, otherwise components, bodies or
+/// timeline features that may move.
 pub fn can_cut(app: &SolveApp) -> bool {
     if app.session.active_sketch.is_some() {
         return !sketch_selection(app).is_empty();
     }
-    let placements = placement_selection(app);
-    if placements.is_empty() { body_cut_refused(app, &body_selection(app)).is_none() } else { placement_cut_refused(app, &placements).is_none() }
+    cut_set(app).is_ok()
 }
 
 /// Cut: in a sketch, the selected sketch geometry (copied, then deleted: one undo step); otherwise
-/// the selected bodies, which stay until Paste moves them.
+/// the selected components, bodies and timeline features, which stay until Paste moves them.
 pub fn cut(app: &mut SolveApp) -> bool {
     if app.session.active_sketch.is_none() {
-        let placements = placement_selection(app);
-        if !placements.is_empty() {
-            if let Some(why) = placement_cut_refused(app, &placements) {
-                return copy_failed(app, Some(&why));
-            }
-            clear_clipboard(app);
-            let names: Vec<String> = placements.iter().filter_map(|p| app.session.occurrence_placement(p).ok()).map(|p| p.name).collect();
-            app.set_status(format!("Cut {}: paste to move it into a component (Esc leaves it)", names.join(", ")), false);
-            leave_text(app, format!("SolidCraft components: {}", names.join(", ")));
-            app.foreign_copy = Some(std::sync::Arc::new(solidcraft_engine::ForeignCopy::of(&app.session, Vec::new(), placements.clone())));
-            app.cut_placements = placements;
-            return true;
-        }
-        let bodies = body_selection(app);
-        if let Some(why) = body_cut_refused(app, &bodies) {
-            return copy_failed(app, Some(&why));
-        }
+        let set = match cut_set(app) {
+            Ok(set) => set,
+            Err(why) => return copy_failed(app, Some(&why)),
+        };
         clear_clipboard(app);
-        app.set_status(format!("Cut {}: paste to move it into a component (Esc leaves it)", bodies.join(", ")), false);
-        leave_text(app, format!("SolidCraft bodies: {}", bodies.join(", ")));
-        // Another design pastes copies of them.
-        app.foreign_copy = Some(std::sync::Arc::new(solidcraft_engine::ForeignCopy::of(&app.session, bodies.clone(), Vec::new())));
-        app.cut_bodies = bodies;
+        let names = cut_names(app, &set);
+        app.set_status(cut_summary(&set), false);
+        leave_text(app, format!("SolidCraft cut: {}", names.join(", ")));
+        // Another design pastes copies of the bodies and components cut, but features never leave their
+        // design: a cut that holds any feature leaves another design nothing to paste.
+        if set.features.is_empty() {
+            app.foreign_copy =
+                Some(std::sync::Arc::new(solidcraft_engine::ForeignCopy::of(&app.session, set.bodies.clone(), set.placements.clone())));
+        }
+        app.cut = set;
+        // What is cut is the faded set; the selection that chose it would only muddy which that is.
+        let _ = app.run("select.clear", json!({}));
         return true;
     }
     let entities = sketch_selection(app);
@@ -455,11 +525,8 @@ pub fn paste_into(app: &mut SolveApp, at: Option<Pos2>, new_copy: bool, into: Op
         return paste_from_design(app, copy, into);
     }
     // Features copied later replace bodies and components (copying those empties the features).
-    if app.session.clipboard.is_empty() && !app.cut_bodies.is_empty() {
-        return paste_cut_bodies(app, into);
-    }
-    if app.session.clipboard.is_empty() && !app.cut_placements.is_empty() {
-        return paste_cut_placements(app, into);
+    if app.session.clipboard.is_empty() && !app.cut.is_empty() {
+        return paste_cut(app, into);
     }
     if app.session.clipboard.is_empty() && !app.copied_placements.is_empty() {
         return paste_placements(app, new_copy, into);
@@ -537,62 +604,59 @@ fn paste_from_design(app: &mut SolveApp, copy: std::sync::Arc<solidcraft_engine:
     true
 }
 
-/// Move the cut bodies into `into` (a component, placed by its placement), where they are; they
-/// are selected and the clipboard empties. Bodies already in it stay as they are. A move that
-/// can't be done says why and keeps the cut, to paste somewhere else.
-fn paste_cut_bodies(app: &mut SolveApp, (component, path): (u64, Vec<u64>)) -> bool {
-    let state = app.session.model.state();
-    let moving: Vec<String> = app
-        .cut_bodies
-        .iter()
-        .filter(|b| state.body(b).is_some_and(|body| app.session.doc.model_body_component(body) != component))
-        .cloned()
-        .collect();
-    drop(state);
-    let cut = std::mem::take(&mut app.cut_bodies);
+/// Move what was cut into `into` (a component, placed by its placement), where it is, in one
+/// step (`browser.reparent`); what moved is selected and the cut is spent. What is gone, or
+/// already there, is skipped. A move that can't be done says why and keeps the cut, to paste
+/// somewhere else.
+fn paste_cut(app: &mut SolveApp, (component, path): (u64, Vec<u64>)) -> bool {
+    let cut = std::mem::take(&mut app.cut);
     let foreign = app.foreign_copy.take();
-    if moving.is_empty() {
+    let (placements, features, bodies) = {
+        let doc = &app.session.doc;
+        let state = app.session.model.state();
+        let placements: Vec<Vec<u64>> = cut
+            .placements
+            .iter()
+            .filter(|p| {
+                app.session.occurrence_placement(p).is_ok()
+                    && p.last().is_some_and(|id| doc.occurrences.iter().any(|o| o.id == *id && o.parent != component))
+            })
+            .cloned()
+            .collect();
+        let features: Vec<u64> = cut.features.iter().copied().filter(|id| doc.feature(*id).is_some_and(|f| f.component != component)).collect();
+        let bodies: Vec<String> =
+            cut.bodies.iter().filter(|b| state.body(b).is_some_and(|body| doc.model_body_component(body) != component)).cloned().collect();
+        (placements, features, bodies)
+    };
+    if placements.is_empty() && features.is_empty() && bodies.is_empty() {
         app.set_status("Already in that component: nothing to move", false);
         return true;
     }
-    if app.run("component.move_bodies", json!({ "bodies": moving, "component": component, "component_path": path })).is_err() {
-        app.cut_bodies = cut;
+    let params = json!({ "occurrences": placements, "features": features, "bodies": bodies, "component": component, "component_path": path });
+    let Ok(out) = app.run("browser.reparent", params) else {
+        app.cut = cut;
         app.foreign_copy = foreign;
         return false;
-    }
-    let _ = app.run("select.set", json!({ "items": moving.iter().map(|b| json!({"type": "body", "name": b})).collect::<Vec<_>>() }));
-    app.set_status(format!("Moved {}", moving.join(", ")), false);
-    true
-}
-
-/// Move the cut components into `into` (a component, placed by its placement), where they are
-/// (`occurrence.reparent`); they are selected and the clipboard empties. Ones already in it stay
-/// as they are. A move that can't be done (into itself) says why and keeps the cut.
-fn paste_cut_placements(app: &mut SolveApp, (component, path): (u64, Vec<u64>)) -> bool {
-    let cut = std::mem::take(&mut app.cut_placements);
-    let foreign = app.foreign_copy.take();
-    let mut moved = Vec::new();
-    for from in &cut {
-        let Some(&occurrence) = from.last() else { continue };
-        if app.session.doc.occurrences.iter().any(|o| o.id == occurrence && o.parent == component) {
-            continue;
-        }
-        let params = json!({ "occurrence": occurrence, "path": from, "parent": component, "parent_path": path });
-        let Ok(out) = app.run("occurrence.reparent", params) else {
-            app.cut_placements = cut;
-            app.foreign_copy = foreign;
-            return false;
-        };
-        let to: Vec<u64> = out.get("path").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_u64).collect()).unwrap_or_default();
+    };
+    let ids = |key: &str| -> Vec<Value> { out.get(key).and_then(Value::as_array).cloned().unwrap_or_default() };
+    let mut moved: Vec<Sel> = Vec::new();
+    for id in ids("occurrences").iter().filter_map(Value::as_u64) {
+        let to: Vec<u64> = path.iter().copied().chain([id]).collect();
+        // Moved components arrive folded.
         crate::browser::close_placement(app, &to);
         moved.push(Sel::Occurrence { path: to });
     }
-    if moved.is_empty() {
-        app.set_status("Already in that component: nothing to move", false);
-        return true;
+    for name in ids("features").iter().filter_map(Value::as_str) {
+        if let Some(f) = app.session.doc.find_feature(name) {
+            moved.push(Sel::Feature { id: f.id });
+        }
     }
+    for name in ids("bodies").iter().filter_map(Value::as_str) {
+        moved.push(Sel::Body { name: name.to_string() });
+    }
+    let count = moved.len();
     let _ = app.run("select.set", json!({ "items": moved }));
-    app.set_status("Moved the cut components", false);
+    app.set_status(format!("Moved {count} {}", if count == 1 { "item" } else { "items" }), false);
     true
 }
 
