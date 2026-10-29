@@ -1951,6 +1951,8 @@
   "prefs.render_previous_geometry_budget": "Use previous Render preview geometry budget",
   "prefs.render_previous_geometry_budget_help": "Restore the previous fixed geometry limit (512 MiB on 64-bit desktop, 128 MiB elsewhere) instead of the device-based budget.",
   "prefs.reports_saved": "{n} saved",
+  "prefs.ribbon_reveal": "Show search results in the ribbon",
+  "prefs.ribbon_reveal_note": "Hovering a result in Search commands shows where the command sits in the ribbon: its tab, its button or its row in a panel's drop-down. A command started from the search blinks there, and a running command from a drop-down marks its panel.",
   "prefs.right_click": "Right click",
   "prefs.saving": "Autosave and recovery",
   "prefs.scale_note": "Also Ctrl + / Ctrl − in the window. Buttons are 28 px at 100%.",

@@ -1869,6 +1869,8 @@
   "prefs.profiles_note": "Tastenkürzel, Werkzeugleiste, Navigation, Radialmenü und Oberflächeneinstellungen, gemeinsam unter einem Namen gespeichert und auf einmal umgeschaltet.",
   "prefs.project_options_dialog": "Project-Optionendialog",
   "prefs.project_options_dialog_note": "Ein: Vor dem Projizieren Geometrie oder Körper und die Projektionsverknüpfung auswählen. Aus: Den bisherigen Direktwahl-Ablauf beibehalten.",
+  "prefs.ribbon_reveal": "Suchergebnisse im Menüband zeigen",
+  "prefs.ribbon_reveal_note": "Steht der Zeiger über einem Ergebnis in Befehle suchen, zeigt das Menüband, wo der Befehl liegt: seine Registerkarte, seine Schaltfläche oder seine Zeile im Aufklappmenü eines Panels. Ein aus der Suche gestarteter Befehl blinkt dort, und ein laufender Befehl aus einem Aufklappmenü markiert sein Panel.",
   "prefs.search": "Einstellungen suchen",
   "prefs.search_empty": "Keine passenden Einstellungen",
   "prefs.single_surface_analysis": "Nur eine Flächenanalyse verwenden",
