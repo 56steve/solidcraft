@@ -171,6 +171,57 @@ fn trim_extend_break() {
     assert!(sketch(&s).curve_index(&lone).is_none());
 }
 
+/// A line that ends where an arc ends crosses it there only within the intersection's
+/// tolerance: trimmed from its other end, it was cut a hair inside its own end and left a piece
+/// about 1e-7 mm long (found by a local trim fuzzer). Nothing else crosses it, so it trims away.
+#[test]
+fn trimming_a_line_that_ends_on_an_arc_leaves_no_piece_of_no_length() {
+    let mut s = new_sketch();
+    let l =
+        ids(&run(&mut s, "sketch.line", json!({"points": [[30, 20], [-6.10565359059288, -8.884522872474289]], "infer": false}))["curves"])[0].clone();
+    run(
+        &mut s,
+        "sketch.arc.three_point",
+        json!({"start": [-8.972171771153333, -9.973571767012182], "end": format!("{l}.end"), "through": [-7.4533649085502365, -9.654220170934645]}),
+    );
+    run(&mut s, "sketch.trim", json!({"curve": l, "at": [30.001, 19.999]}));
+    let sk = sketch(&s);
+    for c in &sk.curves {
+        if let Some((a, b)) = c.kind.ends().and_then(|(a, b)| sk.point(a).zip(sk.point(b))) {
+            assert!(a.dist(b) > 1e-6, "{} is left {} mm long: {:?}", c.id, a.dist(b), c.kind);
+        }
+    }
+}
+
+/// An arc rounded into a corner, whose end is also where a line ends that touches the arc's
+/// circle there: extended from that end, it stopped on the touch at its own end and added an arc
+/// from that point to itself (found by a local trim fuzzer). The touch is the growing end, not a
+/// stop.
+#[test]
+fn an_arc_extended_from_an_end_a_tangent_line_ends_on_adds_no_arc_of_no_length() {
+    let mut s = new_sketch();
+    for (id, p) in [
+        ("sketch.line", json!({"infer": false, "points": [[-20, -20], [-10, 20]]})),
+        ("sketch.arc.three_point", json!({"end": [0, 30], "start": [10, 20], "through": [-7, 7]})),
+        ("sketch.line", json!({"infer": false, "points": [[-10, -30], [10, 30]]})),
+        ("sketch.rectangle.two_point", json!({"p0": [-10, 30], "p1": [20, 0]})),
+        ("sketch.arc.three_point", json!({"end": [0, 10], "start": [20, -30], "through": [3, 27]})),
+        ("sketch.trim", json!({"at": [2.829281375022314, 26.51870311540471], "curve": "a2"})),
+        ("sketch.trim", json!({"at": [-9.999, 29.999], "curve": "l6"})),
+        ("sketch.fillet", json!({"point": "p1", "radius": 5})),
+    ] {
+        run(&mut s, id, p);
+    }
+    let _ = s.execute("sketch.extend", &json!({"at": [-8.670612547178429, 1.6049962723352929], "curve": "a4"}));
+    let sk = sketch(&s);
+    for c in &sk.curves {
+        if let CurveKind::Arc { a: p, b: q, .. } = c.kind {
+            let (pa, pb) = (sk.point(p).unwrap(), sk.point(q).unwrap());
+            assert!(p != q && pa.dist(pb) > 1e-6, "{} runs from {pa:?} to {pb:?}: {:?}", c.id, c.kind);
+        }
+    }
+}
+
 #[test]
 fn trim_circle_makes_an_arc_and_a_profile() {
     let mut s = new_sketch();
