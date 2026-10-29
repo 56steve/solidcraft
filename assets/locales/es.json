@@ -908,6 +908,8 @@
   "cmd.view_graphics_preset": "Preajuste gráfico",
   "cmd.view_list": "Listar vistas guardadas",
   "cmd.view_navigate": "Navegar por la vista",
+  "cmd.view_next_tab": "Pestaña siguiente",
+  "cmd.view_previous_tab": "Pestaña anterior",
   "cmd.view_rename": "Cambiar nombre de vista guardada",
   "cmd.view_save": "Nueva vista guardada",
   "color.copy": "Haz clic para copiar los valores del color",
