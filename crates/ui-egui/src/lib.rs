@@ -1081,12 +1081,13 @@ impl SolveApp {
         if self.session.revision != revision {
             timeline::stop_playback(self);
         }
+        let selection_changed = self.session.selection != selected_before || matches!(id, "select.set" | "select.clear" | "select.same_look");
+        if done.is_ok() && selection_changed {
+            self.tree.clear_folder_pick();
+        }
         // Render focus already applies its semantic selection after clearing object picks.
         // A tab switch brings in the other design's own Render selection.
-        if done.is_ok()
-            && !matches!(id, "view.render_select" | "view.next_tab" | "view.previous_tab")
-            && (self.session.selection != selected_before || matches!(id, "select.set" | "select.clear" | "select.same_look"))
-        {
+        if done.is_ok() && !matches!(id, "view.render_select" | "view.next_tab" | "view.previous_tab") && selection_changed {
             if self.session.selection.is_empty() && render_workspace::active(self) {
                 render_workspace::selection_editor(self, &render_workspace::RenderSelection::Nothing);
             }
@@ -1421,6 +1422,7 @@ impl SolveApp {
     }
 
     fn start_with_variant_memory(&mut self, id: &str, remember_variant: bool, opener: Option<egui::Rect>) {
+        self.tree.clear_folder_pick();
         if id == "timeline.play" {
             if let Err(why) = self.run(id, json!({})) {
                 self.set_status(why, true);
