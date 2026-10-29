@@ -2,6 +2,503 @@ use super::*;
 use crate::scenario::Harness;
 use solidcraft_engine::Session;
 
+fn environment_editor_frame(h: &mut Harness, events: Vec<egui::Event>) {
+    let mut output = h.ctx.run_ui(
+        egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1200.0, 1800.0))), events, ..Default::default() },
+        |ui| {
+            ui.set_width(308.0);
+            environment::editor(&mut h.app, ui);
+        },
+    );
+    output.textures_delta.clear();
+}
+
+fn environment_editor_fixture() -> Harness {
+    let mut h = Harness::new();
+    h.app.run("solid.box", json!({"length":10,"width":20,"height":5})).unwrap();
+    let name = h.app.render_workspace.view.name.clone();
+    h.app.run("render.settings.set", json!({"name":name,"set":{"job":{"method":"gpu_path","options":{"environment":{"kind":"sky"}}}}})).unwrap();
+    setups::load(&mut h.app);
+    h
+}
+
+#[test]
+fn environment_editor_e4_variants_keep_all_five_sections_in_order() {
+    for variant in ["embedded", "sky", "file"] {
+        let mut h = environment_editor_fixture();
+        if variant == "embedded" {
+            let name = h.app.render_workspace.view.name.clone();
+            h.app.run("render.library.environment.apply", json!({"id":"HDR-001","name":name,"replace_environment":true})).unwrap();
+            setups::load(&mut h.app);
+        } else if variant == "file" {
+            h.app.render_workspace.view.studio.environment = studio::Environment::Hdr;
+            h.app.render_workspace.view.studio.hdr = hdr::Input::FilePending { path: "C:/hdr/studio.hdr".into() };
+        } else {
+            h.app.render_workspace.view.studio.backdrop_enabled = true;
+        }
+        let before = h.app.session.doc.clone();
+        let mut output = h.ctx.run_ui(
+            egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(308.0, 3000.0))), ..Default::default() },
+            |ui| environment::editor(&mut h.app, ui),
+        );
+        let mut previous = -1.0;
+        let source_row = crate::scenario::rect_of("dialog:control:Source").unwrap();
+        let change = crate::scenario::rect_of("render:environment:change").unwrap();
+        assert!(source_row.contains_rect(change), "{variant}: Change must fit beside Source");
+        for key in [
+            "render.env_source",
+            "render.environment.orientation",
+            "render.env_backdrop",
+            "render.environment.ground",
+            "render.environment.atmosphere",
+        ] {
+            let rect = crate::scenario::rect_of(&format!("dialog:section:{}", h.app.tr(key))).unwrap();
+            assert!(rect.top() > previous, "{variant}: {key} out of order");
+            previous = rect.top();
+        }
+        let text = crate::test_support::text_shapes(&output).map(|shape| shape.galley.job.text.clone()).collect::<Vec<_>>().join("\n");
+        for key in [
+            "render.environment.replace",
+            "render.environment.fit",
+            "render.environment.floor_wall",
+            "render.environment.cyclorama",
+            "render.environment.medium",
+            "render.environment.phase",
+        ] {
+            assert!(text.contains(h.app.tr(key)), "{variant}: missing {key}: {text}");
+        }
+        for key in match variant {
+            "embedded" => &["render.environment.embedded", "render.environment.builtin"][..],
+            "file" => &["render.environment.choose", "render.environment.check"][..],
+            _ => &[
+                "render.environment.zenith",
+                "render.environment.horizon",
+                "render.environment.sky_ground",
+                "render.environment.start",
+                "render.environment.end",
+            ][..],
+        } {
+            assert!(text.contains(h.app.tr(key)), "{variant}: missing {key}");
+        }
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc), "opening {variant} must never save");
+        output.textures_delta.clear();
+    }
+}
+
+#[test]
+fn environment_editor_unsupported_methods_keep_controls_and_reasons_without_switching() {
+    for method in [ImageMethod::Raster, ImageMethod::CpuRaytrace] {
+        let mut h = environment_editor_fixture();
+        h.app.render_workspace.view.method = method;
+        let before = h.app.session.doc.clone();
+        let mut output = h.ctx.run_ui(
+            egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(308.0, 3000.0))), ..Default::default() },
+            |ui| environment::editor(&mut h.app, ui),
+        );
+        let text = crate::test_support::text_shapes(&output).map(|shape| shape.galley.job.text.clone()).collect::<Vec<_>>().join("\n");
+        for key in [
+            "render.environment.needs_gpu",
+            "render.environment.gradient_gpu",
+            "render.environment.blur_pending",
+            "render.environment.world_pending",
+            "render.environment.medium",
+            "render.environment.min",
+            "render.environment.max",
+        ] {
+            assert!(text.contains(h.app.tr(key)), "missing {key}: {text}");
+        }
+        output.textures_delta.clear();
+        let at = crate::scenario::rect_of("render:volume-enable").unwrap().center();
+        for pressed in [true, false] {
+            environment_editor_frame(
+                &mut h,
+                vec![
+                    egui::Event::PointerMoved(at),
+                    egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() },
+                ],
+            );
+        }
+        assert!(h.app.render_workspace.view.studio.volume.is_none());
+        assert_eq!(h.app.render_workspace.view.method, method);
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+    }
+}
+
+#[test]
+fn environment_editor_gradient_and_atmosphere_refuse_hostile_values_atomically() {
+    let mut h = environment_editor_fixture();
+    let before = h.app.session.doc.clone();
+    let undo = h.app.session.undo.len();
+    for value in [f64::NAN, f64::INFINITY, -1.0, 1e300] {
+        let mut gradient = h.app.render_workspace.view.studio.backdrop;
+        gradient.radius = value;
+        assert!(environment::commit_gradient(&mut h.app, true, gradient).is_err());
+        h.app.render_workspace.view.studio.volume =
+            Some(solidcraft_engine::render::job::volume::HomogeneousVolume { extinction_per_mm: value, ..Default::default() });
+        assert!(setups::save(&mut h.app).is_err());
+        h.app.render_workspace.view.studio.volume = None;
+    }
+    assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+    assert_eq!(h.app.session.undo.len(), undo);
+    environment::commit_gradient(&mut h.app, true, Default::default()).unwrap();
+    assert!(h.app.render_workspace.view.studio.backdrop_enabled);
+    h.app.run("edit.undo", json!({})).unwrap();
+    assert_eq!(h.app.session.doc, before);
+}
+
+#[test]
+fn environment_editor_stage_removal_requires_confirm_and_rejects_stale_answers() {
+    for stale in [false, true] {
+        let mut h = environment_editor_fixture();
+        environment::commit_ground(&mut h.app, true, environment::Ground { margin: 1.0, gap: 0.1, color: [0.18; 3] }).unwrap();
+        let before = h.app.session.doc.clone();
+        environment::request_stage_removal(&h.app, &h.ctx);
+        for _ in 0..3 {
+            environment_editor_frame(&mut h, vec![]);
+        }
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+        assert!(crate::scenario::rect_of("dialog:ok").is_some());
+        if stale {
+            h.app.run("render.settings.set", json!({"name":"Other","set":{"width":42}})).unwrap();
+        }
+        let undo = h.app.session.undo.len();
+        let at = crate::scenario::rect_of("dialog:ok").unwrap().center();
+        for pressed in [true, false] {
+            environment_editor_frame(
+                &mut h,
+                vec![
+                    egui::Event::PointerMoved(at),
+                    egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() },
+                ],
+            );
+        }
+        assert_eq!(h.app.session.undo.len(), undo + usize::from(!stale));
+        assert_eq!(h.app.render_workspace.view.draft.stage.is_empty(), !stale);
+    }
+}
+
+#[test]
+fn environment_editor_checked_file_embeds_bytes_and_keeps_the_recheck_banner() {
+    let mut h = environment_editor_fixture();
+    let path = h.dir.join("environment-editor.hdr");
+    let bytes = original_hdr_bytes(128, true);
+    std::fs::write(&path, &bytes).unwrap();
+    h.app.render_workspace.view.studio.environment = studio::Environment::Hdr;
+    hdr::inspect(&mut h.app, hdr::Target::Gpu, path.to_string_lossy().into_owned()).unwrap();
+    let undo = h.app.session.undo.len();
+    environment::persist(&mut h.app);
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+    assert_eq!(h.app.session.doc.render.resources.len(), 1);
+    assert!(matches!(h.app.render_workspace.view.studio.hdr, hdr::Input::FileCaptured { .. }));
+    let mut output = h.ctx.run_ui(
+        egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(308.0, 3000.0))), ..Default::default() },
+        |ui| environment::editor(&mut h.app, ui),
+    );
+    assert!(crate::test_support::text_shapes(&output).any(|shape| shape.galley.job.text.contains(h.app.tr("render.environment.checked"))));
+    output.textures_delta.clear();
+    let before = h.app.session.doc.clone();
+    std::fs::write(&path, original_hdr_bytes(64, true)).unwrap();
+    environment::persist(&mut h.app);
+    assert!(Arc::ptr_eq(&before, &h.app.session.doc), "changed bytes require rechecking");
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+}
+
+#[test]
+fn environment_editor_medium_toggle_saves_one_command_without_a_gpu_host() {
+    let mut h = environment_editor_fixture();
+    environment_editor_frame(&mut h, vec![]);
+    let at = crate::scenario::rect_of("render:volume-enable").unwrap().center();
+    let undo = h.app.session.undo.len();
+    for pressed in [true, false] {
+        environment_editor_frame(
+            &mut h,
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() },
+            ],
+        );
+    }
+    assert!(h.app.render_workspace.view.studio.volume.is_some());
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+    let expected = setups::snapshot(&h.app).unwrap();
+    assert_eq!(h.app.session.doc.render.setups[&h.app.render_workspace.view.name], expected);
+    h.app.run("edit.undo", json!({})).unwrap();
+    setups::load(&mut h.app);
+    assert!(h.app.render_workspace.view.studio.volume.is_none());
+}
+
+#[test]
+fn environment_ring_angles_snap_wrap_and_refuse_hostile_geometry() {
+    let center = egui::pos2(100.0, 200.0);
+    for (point, expected) in
+        [(egui::pos2(150.0, 200.0), 0.0), (egui::pos2(100.0, 250.0), 90.0), (egui::pos2(50.0, 200.0), 180.0), (egui::pos2(100.0, 150.0), -90.0)]
+    {
+        assert_eq!(environment::pointer_angle(point, center, 50.0), Some(expected));
+    }
+    assert_eq!(environment::drag_rotation(170.0, 170.0, -170.0, false), Some(-170.0));
+    assert_eq!(environment::drag_rotation(170.0, 0.0, 30.0, true), Some(-165.0));
+    assert_eq!(environment::drag_rotation(-170.0, 0.0, -30.0, true), Some(165.0));
+    assert_eq!(environment::drag_rotation(0.0, 0.0, 180.0, false), Some(-180.0));
+    assert_eq!(environment::pointer_angle(center, center, 50.0), None);
+    for radius in [0.0, -1.0, f32::NAN, f32::INFINITY, 1e9] {
+        assert_eq!(environment::pointer_angle(egui::pos2(150.0, 200.0), center, radius), None);
+    }
+    for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert_eq!(environment::pointer_angle(egui::pos2(value, 200.0), center, 50.0), None);
+        assert_eq!(environment::pointer_angle(center, egui::pos2(100.0, value), 50.0), None);
+    }
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 1e300] {
+        assert_eq!(environment::drag_rotation(value, 0.0, 20.0, false), None);
+        assert_eq!(environment::drag_rotation(0.0, value, 20.0, true), None);
+        assert_eq!(environment::drag_rotation(0.0, 0.0, value, false), None);
+    }
+}
+
+fn environment_ring_frame(h: &mut Harness, mods: egui::Modifiers, events: Vec<egui::Event>) {
+    let mut output = h.ctx.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0))),
+            focused: true,
+            events: std::iter::once(egui::Event::ModifiersChanged(mods)).chain(events).collect(),
+            ..Default::default()
+        },
+        |ui| {
+            let viewport = ui.max_rect();
+            show(&mut h.app, ui);
+            environment_overlay(&mut h.app, ui, viewport);
+        },
+    );
+    output.textures_delta.clear();
+}
+
+fn environment_ring_fixture() -> Harness {
+    let mut h = environment_editor_fixture();
+    enter(&mut h.app, true).unwrap();
+    h.app.render_workspace.view.inspector.page = inspector::Page::Environment;
+    h.app.preferences.nav = crate::prefs::OPENSCAD_NAV.into();
+    h.app.cam.fit(&solidcraft_engine::product_scene::extract(&h.app.session).unwrap().bounds);
+    environment_ring_frame(&mut h, egui::Modifiers::NONE, vec![]);
+    h
+}
+
+#[test]
+fn environment_ring_drag_is_one_undo_snaps_and_never_navigates_the_camera() {
+    use egui::{Event, Modifiers, PointerButton};
+    let mut h = environment_ring_fixture();
+    environment::commit_environment(&mut h.app, json!({"rotation_deg":170})).unwrap();
+    environment_ring_frame(&mut h, Modifiers::NONE, vec![]);
+    let ring = h.app.render_workspace.view.environment_ring.geometry.unwrap();
+    let at = |degrees: f32| ring.center + egui::vec2(degrees.to_radians().cos(), degrees.to_radians().sin()) * ring.radius;
+    let press = at(0.0);
+    let before = h.app.session.doc.clone();
+    let camera = h.app.cam;
+    let undo = h.app.session.undo.len();
+    let selection = h.app.session.selection.clone();
+    for pressed in [true, false] {
+        environment_ring_frame(
+            &mut h,
+            Modifiers::SHIFT,
+            vec![
+                Event::PointerMoved(press),
+                Event::PointerButton { pos: press, button: PointerButton::Primary, pressed, modifiers: Modifiers::SHIFT },
+            ],
+        );
+    }
+    assert!(Arc::ptr_eq(&before, &h.app.session.doc), "a Shift click without a drag does not snap or save");
+    environment_ring_frame(
+        &mut h,
+        Modifiers::NONE,
+        vec![
+            Event::PointerMoved(press),
+            Event::PointerButton { pos: press, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE },
+        ],
+    );
+    for angle in [10.0, 20.0, 30.0] {
+        environment_ring_frame(&mut h, Modifiers::SHIFT, vec![Event::PointerMoved(at(angle))]);
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc), "drag is temporary");
+        assert_eq!(h.app.session.undo.len(), undo);
+        assert_eq!(h.app.cam, camera, "OpenSCAD left-drag must not orbit through the ring");
+    }
+    let end = at(30.0);
+    environment_ring_frame(
+        &mut h,
+        Modifiers::SHIFT,
+        vec![Event::PointerButton { pos: end, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::SHIFT }],
+    );
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+    assert!((h.app.render_workspace.view.studio.rotation_rad.to_degrees() + 165.0).abs() < 1e-6);
+    assert_eq!(h.app.cam, camera);
+    assert_eq!(h.app.session.selection, selection);
+    assert!(crate::scenario::rect_of("render:environment:ring-degrees").is_some());
+    h.app.run("edit.undo", json!({})).unwrap();
+    assert_eq!(h.app.session.doc, before);
+}
+
+#[test]
+fn environment_ring_cancel_or_stale_revision_discards_the_drag() {
+    use egui::{Event, Modifiers, PointerButton};
+    for stale in [false, true] {
+        let mut h = environment_ring_fixture();
+        let ring = h.app.render_workspace.view.environment_ring.geometry.unwrap();
+        let start = ring.center + egui::vec2(ring.radius, 0.0);
+        let end = ring.center + egui::vec2(0.0, ring.radius);
+        environment_ring_frame(
+            &mut h,
+            Modifiers::NONE,
+            vec![
+                Event::PointerMoved(start),
+                Event::PointerButton { pos: start, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE },
+            ],
+        );
+        environment_ring_frame(&mut h, Modifiers::NONE, vec![Event::PointerMoved(end)]);
+        if stale {
+            h.app.run("render.settings.set", json!({"name":"Studio","set":{"width":640}})).unwrap();
+        }
+        let before = h.app.session.doc.clone();
+        let undo = h.app.session.undo.len();
+        let camera = h.app.cam;
+        let cancel = if stale {
+            vec![]
+        } else {
+            vec![Event::Key { key: egui::Key::Escape, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::NONE }]
+        };
+        environment_ring_frame(&mut h, Modifiers::NONE, cancel);
+        environment_ring_frame(&mut h, Modifiers::NONE, vec![Event::PointerMoved(start)]);
+        environment_ring_frame(
+            &mut h,
+            Modifiers::NONE,
+            vec![Event::PointerButton { pos: start, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE }],
+        );
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+        assert_eq!(h.app.session.undo.len(), undo);
+        assert_eq!(h.app.cam, camera);
+    }
+}
+
+#[test]
+fn environment_ring_visibility_follows_editor_target_and_live_canvas() {
+    let mut h = environment_ring_fixture();
+    h.app.render_workspace.view.inspector.page = inspector::Page::Lighting;
+    h.app.render_workspace.view.selection = RenderSelection::Environment;
+    environment_ring_frame(&mut h, egui::Modifiers::NONE, vec![]);
+    assert!(h.app.render_workspace.view.environment_ring.geometry.is_some());
+    h.app.render_workspace.view.selection = RenderSelection::Nothing;
+    environment_ring_frame(&mut h, egui::Modifiers::NONE, vec![]);
+    assert!(h.app.render_workspace.view.environment_ring.geometry.is_none());
+    h.app.render_workspace.view.inspector.page = inspector::Page::Environment;
+    h.app.render_workspace.view.result = true;
+    environment_ring_frame(&mut h, egui::Modifiers::NONE, vec![]);
+    assert!(h.app.render_workspace.view.environment_ring.geometry.is_none());
+}
+
+#[test]
+fn environment_editor_opening_pages_and_sources_preserves_design_and_history() {
+    let mut h = environment_editor_fixture();
+    let before = h.app.session.doc.clone();
+    let history = (h.app.session.revision, h.app.session.undo.len(), h.app.session.redo.len());
+    for page in [inspector::Page::Environment, inspector::Page::Background] {
+        h.app.render_workspace.view.inspector.page = page;
+        environment_editor_frame(&mut h, vec![]);
+        assert!(crate::scenario::rect_of("render:environment:rotation-slider").is_some());
+        h.app.ui.show_browser = false;
+        environment::open_sources(&mut h.app);
+        assert!(h.app.ui.show_browser);
+        assert_eq!(h.app.render_workspace.view.stage, Stage::Light);
+        assert_eq!(h.app.render_workspace.view.inspector.page, page);
+        assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+        assert_eq!(history, (h.app.session.revision, h.app.session.undo.len(), h.app.session.redo.len()));
+    }
+}
+
+#[test]
+fn environment_editor_controls_commit_one_undo_each_and_refuse_hostile_edits() {
+    let mut h = environment_editor_fixture();
+    for request in [json!({"rotation_deg":215}), json!({"intensity":2.5})] {
+        let before = h.app.session.doc.clone();
+        let undo = h.app.session.undo.len();
+        environment::commit_environment(&mut h.app, request).unwrap();
+        assert_eq!(h.app.session.undo.len(), undo + 1);
+        h.app.run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.app.session.doc, before);
+        h.app.run("edit.redo", json!({})).unwrap();
+    }
+    for (color, transparent) in [([40, 80, 120], false), ([40, 80, 120], true), ([40, 80, 120], false)] {
+        let undo = h.app.session.undo.len();
+        environment::commit_backdrop(&mut h.app, color, transparent).unwrap();
+        assert_eq!(h.app.session.undo.len(), undo + 1);
+    }
+    let mut ground = environment::Ground { margin: 0.25, gap: 0.1, color: [0.18; 3] };
+    for edit in 0..5 {
+        match edit {
+            1 => ground.margin = 1.0,
+            2 => ground.gap = 0.25,
+            3 => ground.color = [0.1, 0.3, 0.5],
+            _ => {}
+        }
+        let undo = h.app.session.undo.len();
+        environment::commit_ground(&mut h.app, edit != 4, ground.clone()).unwrap();
+        assert_eq!(h.app.session.undo.len(), undo + 1);
+    }
+    let before = h.app.session.doc.clone();
+    let undo = h.app.session.undo.len();
+    for request in [json!({"rotation_deg":1e300}), json!({"intensity":-1}), json!({"rotation_deg":"NaN"}), json!(null), json!([])] {
+        assert!(environment::commit_environment(&mut h.app, request).is_err());
+    }
+    assert!(environment::commit_ground(&mut h.app, true, environment::Ground { gap: f64::NAN, ..ground }).is_err());
+    assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+    assert_eq!(h.app.session.undo.len(), undo);
+}
+
+#[test]
+fn environment_editor_slider_drag_commits_only_on_release() {
+    let mut h = environment_editor_fixture();
+    environment_editor_frame(&mut h, vec![]);
+    let rect = crate::scenario::rect_of("render:environment:rotation-slider").unwrap();
+    let start = rect.center();
+    let end = egui::pos2(rect.right() - 20.0, start.y);
+    let undo = h.app.session.undo.len();
+    environment_editor_frame(
+        &mut h,
+        vec![
+            egui::Event::PointerMoved(start),
+            egui::Event::PointerButton { pos: start, button: egui::PointerButton::Primary, pressed: true, modifiers: Default::default() },
+        ],
+    );
+    environment_editor_frame(&mut h, vec![egui::Event::PointerMoved(end)]);
+    assert_eq!(h.app.session.undo.len(), undo, "dragging is temporary");
+    environment_editor_frame(
+        &mut h,
+        vec![egui::Event::PointerButton { pos: end, button: egui::PointerButton::Primary, pressed: false, modifiers: Default::default() }],
+    );
+    assert_eq!(h.app.session.undo.len(), undo + 1, "release saves one edit");
+    environment_editor_frame(&mut h, vec![]);
+    assert_eq!(h.app.session.undo.len(), undo + 1);
+}
+
+#[test]
+fn environment_editor_hdr_header_reads_catalog_without_applying_or_saving() {
+    let mut h = environment_editor_fixture();
+    let name = h.app.render_workspace.view.name.clone();
+    h.app.run("render.library.environment.apply", json!({"id":"HDR-001","name":name,"replace_environment":true})).unwrap();
+    setups::load(&mut h.app);
+    let before = h.app.session.doc.clone();
+    let undo = h.app.session.undo.len();
+    let mut output = h.ctx.run_ui(
+        egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(305.0, 1600.0))), ..Default::default() },
+        |ui| environment::editor(&mut h.app, ui),
+    );
+    let named = crate::test_support::text_shapes(&output).any(|text| text.galley.job.text.contains("Neutral side softbox"));
+    output.textures_delta.clear();
+    assert!(named);
+    assert!(Arc::ptr_eq(&before, &h.app.session.doc));
+    assert_eq!(h.app.session.undo.len(), undo);
+    for request in [json!({"rotation_deg":540}), json!({"intensity":0})] {
+        let undo = h.app.session.undo.len();
+        environment::commit_environment(&mut h.app, request).unwrap();
+        assert_eq!(h.app.session.undo.len(), undo + 1);
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 mod async_path_host {
     use super::*;
@@ -4012,6 +4509,8 @@ fn render_workspace_browser_focus_covers_each_kind_without_design_edits() {
     assert_eq!(h.app.render_workspace.view.selection, RenderSelection::Object(vec![Sel::Body { name: "Object".into() }]));
     h.step(&json!({"click":{"handle":"render:tree:environment"}})).unwrap();
     assert_eq!(h.app.render_workspace.view.selection, RenderSelection::Environment);
+    assert_eq!(h.app.render_workspace.view.inspector.page, inspector::Page::Environment);
+    assert!(crate::scenario::rect_of("dialog:section:Source").is_some());
     assert!(h.app.session.selection.is_empty());
     let focused_revision = h.app.session.revision;
     h.step(&json!({"click":{"handle":"render:tree:light:0"}})).unwrap();

@@ -184,8 +184,9 @@ pub(super) fn controls(app: &mut SolveApp, ui: &mut egui::Ui) {
     ui.small(app.tr("render.studio_runtime_help"));
 }
 
+#[cfg(test)]
 pub(super) fn environment_controls(app: &mut SolveApp, ui: &mut egui::Ui) {
-    super::transport::volume_controls(app, ui);
+    super::environment::atmosphere(app, ui);
     let variants =
         [(Environment::None, "render.studio_environment_none"), (Environment::Sky, "render.studio_sky"), (Environment::Hdr, "render.studio_hdr")];
     let selected = app.render_workspace.view.studio.environment;
@@ -390,6 +391,7 @@ pub(super) fn post_controls(app: &mut SolveApp, ui: &mut egui::Ui) {
     }
 }
 
+#[cfg(test)]
 pub(super) fn backdrop_controls(app: &mut SolveApp, ui: &mut egui::Ui) {
     use solidcraft_engine::render::job::finishing::BackdropMode;
     let label = app.tr("render.backdrop_enable").to_string();
