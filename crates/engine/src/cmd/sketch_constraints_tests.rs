@@ -1281,6 +1281,24 @@ fn a_constraint_never_throws_the_sketch_far_away() {
     assert!(far < 1e4, "a point went {far} mm away");
 }
 
+/// A constraint that can only be met by shrinking curves to a point is refused, as one that
+/// throws the sketch far away is: making a rectangle's corner the midpoint of the opposite side,
+/// or two opposite corners coincident, squeezed the whole rectangle to a point while the sketch
+/// said solved (found by a local sketch fuzzer).
+#[test]
+fn a_constraint_that_would_shrink_a_rectangle_to_a_point_is_refused() {
+    for (id, p) in
+        [("sketch.constraint.midpoint", json!({"line": "l4", "point": "p2"})), ("sketch.constraint.coincident", json!({"a": "p1", "b": "p3"}))]
+    {
+        let mut s = new_sketch();
+        run(&mut s, "sketch.rectangle.two_point", json!({"p0": [-30, 4], "p1": [11, 27]}));
+        let before = sketch(&s);
+        let e = s.execute(id, &p).unwrap_err().to_string();
+        assert!(e.contains("shrink") && e.contains("to a point"), "{id} {p}: {e}");
+        assert_eq!(sketch(&s), before, "{id} {p}");
+    }
+}
+
 #[test]
 fn coincident_circles_lie_on_each_other() {
     let mut s = new_sketch();

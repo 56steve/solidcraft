@@ -342,10 +342,30 @@ fn settle(strict: bool, rep: SolveReport, sk: &mut Sketch, unsolved: Sketch) -> 
             "that would throw points of the sketch far away: its constraints have no solution near the sketch as it is".into(),
         ));
     }
-    if !rep.keeps_orientation() || far {
+    // A solve that shrinks a line or circle to a point met its constraints only by squeezing
+    // that curve away (a corner made the midpoint of the opposite side of its rectangle).
+    let gone = shrunk(&unsolved, sk);
+    if strict && let Some(curve) = &gone {
+        return Err(EngineError::Other(format!("that would shrink {curve} to a point: its constraints can only be met without it")));
+    }
+    if !rep.keeps_orientation() || far || gone.is_some() {
         *sk = unsolved;
     }
     Ok(rep)
+}
+
+/// The first line or circle that solving `before` into `after` shrank to a point: longer (or
+/// wider) than 1e-3 before and shorter than 1e-6 after. A length a dimension asks for is never
+/// that short.
+fn shrunk(before: &Sketch, after: &Sketch) -> Option<String> {
+    let size = |sk: &Sketch, i: usize| match sk.curves.get(i).map(|c| &c.kind) {
+        Some(CurveKind::Line { .. }) => line_pts(sk, i).map(|(a, b)| a.dist(b)),
+        Some(CurveKind::Arc { .. } | CurveKind::Circle { .. }) => sk.radius(i),
+        _ => None,
+    };
+    (0..before.curves.len().min(after.curves.len()))
+        .find(|&i| matches!((size(before, i), size(after, i)), (Some(b), Some(a)) if b > 1e-3 && a < 1e-6))
+        .and_then(|i| after.curves.get(i).map(|c| c.id.clone()))
 }
 
 /// A solve moving some point further than this many times the sketch's size (and its largest
@@ -1780,6 +1800,9 @@ pub(super) fn apply_in_order(sk: &mut Sketch, rep: &SolveReport, first: &[Ent], 
         if solve_with(&mut trial, &Hold::default(), None, Analysis::StatusOnly, None).ok() {
             if flung(sk, &trial) {
                 return Err(bad(cmd, "that would throw points of the sketch far away: its constraints have no solution near the sketch as it is"));
+            }
+            if let Some(curve) = shrunk(sk, &trial) {
+                return Err(bad(cmd, format!("that would shrink {curve} to a point: its constraints can only be met without it")));
             }
             *sk = trial;
             return Ok(());
