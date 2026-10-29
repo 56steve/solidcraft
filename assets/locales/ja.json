@@ -4427,6 +4427,7 @@
   "ui.select": "選択",
   "ui.selectOther": "その他を選択…",
   "ui.selectTangentChain": "接線チェーンを選択",
+  "ui.select_all": "すべて選択",
   "ui.selection": "選択",
   "ui.selection_modifiers": "選択修飾キー",
   "ui.selection_shift_add_only": "Shift+クリックで追加のみ（解除なし）",

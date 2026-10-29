@@ -4427,6 +4427,7 @@
   "ui.select": "Select",
   "ui.selectOther": "Select Other…",
   "ui.selectTangentChain": "Select Tangent Chain",
+  "ui.select_all": "Select All",
   "ui.selection": "Selection",
   "ui.selection_modifiers": "Selection modifiers",
   "ui.selection_shift_add_only": "Shift+click adds without removing",

@@ -4427,6 +4427,7 @@
   "ui.select": "تحديد",
   "ui.selectOther": "تحديد آخر…",
   "ui.selectTangentChain": "تحديد سلسلة مماسية",
+  "ui.select_all": "تحديد الكل",
   "ui.selection": "التحديد",
   "ui.selection_modifiers": "مُعدِّلات التحديد",
   "ui.selection_shift_add_only": "Shift مع النقر يضيف دون إزالة",

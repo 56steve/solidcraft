@@ -3739,6 +3739,7 @@
   "ui.select": "Auswählen",
   "ui.selectOther": "Andere auswählen…",
   "ui.selectTangentChain": "Tangentialkette auswählen",
+  "ui.select_all": "Alles auswählen",
   "ui.selection": "Auswahl",
   "ui.selection_modifiers": "Auswahlmodifikatoren",
   "ui.selection_shift_add_only": "Umschalt+Klick fügt hinzu, ohne zu entfernen",

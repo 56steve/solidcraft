@@ -4427,6 +4427,7 @@
   "ui.select": "Chọn",
   "ui.selectOther": "Chọn đối tượng khác…",
   "ui.selectTangentChain": "Chọn chuỗi tiếp tuyến",
+  "ui.select_all": "Chọn tất cả",
   "ui.selection": "Vùng chọn",
   "ui.selection_modifiers": "Phím bổ trợ chọn",
   "ui.selection_shift_add_only": "Shift+nhấp chỉ thêm, không bỏ chọn",

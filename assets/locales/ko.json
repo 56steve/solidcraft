@@ -3509,6 +3509,7 @@
   "ui.select": "선택",
   "ui.selectOther": "기타 선택…",
   "ui.selectTangentChain": "접선 체인 선택",
+  "ui.select_all": "모두 선택",
   "ui.selection": "선택",
   "ui.selection_modifiers": "선택 보조 키",
   "ui.selection_shift_add_only": "Shift+클릭은 추가만 함",
