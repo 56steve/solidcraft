@@ -1577,13 +1577,13 @@ pub fn toolbar(app: &mut SolveApp, ui: &mut egui::Ui) {
                     icons::paint_icon(
                         &painter,
                         Rect::from_center_size(cell.center(), vec2(15.0, 15.0)),
-                        c.icon,
+                        info.icon,
                         if info.enabled { 1.0 } else { 0.35 },
                     );
                     for prefix in ["toolbar", "button", "ribbon:constraint"] {
                         crate::scenario::publish_target(&format!("{prefix}:{}", c.id), cell);
                     }
-                    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, info.enabled, app.tr_label(c.label)));
+                    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, info.enabled, app.tr_label(info.label)));
                     if resp.drag_started() {
                         resp.dnd_set_drag_payload(ToolbarDrag { id: c.id, from_menu: false });
                     }
@@ -1865,7 +1865,7 @@ const CONSTRAINT_GRID_WIDTH: f32 = 82.0;
 fn ribbon_tooltip(app: &SolveApp, response: egui::Response, command: &solidcraft_engine::CommandSpec, disabled: Option<&str>) -> egui::Response {
     response.on_hover_ui(|ui| {
         let t = Tokens::get();
-        let name = app.tr_label(command.info(&app.session).label);
+        let name = app.tr_label(crate::render_workspace::interactive_command_info(app, command).label);
         let name_width =
             ui.painter().layout_no_wrap(name.to_string(), crate::fonts::semibold(crate::theme::Tokens::get().font_heading), t.text).size().x;
         let key_width = crate::keymap::display_for(app, command.id)

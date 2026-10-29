@@ -106,6 +106,10 @@ pub(super) fn action_ready(app: &SolveApp, id: &str) -> Result<(), String> {
 }
 
 pub(super) fn command_info(app: &SolveApp, command: &CommandSpec) -> CommandInfo {
+    // Play History swaps to Stop History while it runs, wherever the command is shown.
+    if command.id == "timeline.play" {
+        return crate::timeline::playback_command_info(app, command);
+    }
     let mut info = command.info(&app.session);
     if info.enabled
         && super::active(app)

@@ -1443,6 +1443,7 @@ fn every_context_target_has_identified_icon_rows_including_submenus() {
         Target::Units,
         Target::ToolbarCommand { id: "solid.extrude".into() },
         Target::Toolbar,
+        Target::HistoryControls,
         Target::Workspace,
         Target::NamedViews,
         Target::NamedView { name: "Top".into() },

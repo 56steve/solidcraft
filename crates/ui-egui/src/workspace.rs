@@ -199,7 +199,7 @@ pub const SECTIONS: &[Section] = &[
             "inspect.continuity",
         ],
     },
-    Section { tab: "INSPECT", panel: "HISTORY", promoted: 2, ids: &["timeline.dependents", "document.inspect"] },
+    Section { tab: "INSPECT", panel: "HISTORY", promoted: 3, ids: &["timeline.play", "timeline.dependents", "document.inspect"] },
     Section {
         tab: "MANAGE",
         panel: "PARAMETERS",

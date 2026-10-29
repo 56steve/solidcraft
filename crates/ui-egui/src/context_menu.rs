@@ -69,6 +69,8 @@ pub enum Target {
     },
     /// The toolbar's empty space.
     Toolbar,
+    /// The History controls (first, previous, next, last, and Play when shown).
+    HistoryControls,
     /// The workspace switcher.
     Workspace,
     /// The Named Views folder, and one view (saved or standard) in it.
@@ -388,6 +390,7 @@ pub fn items(app: &SolveApp, target: &Target) -> Vec<Item> {
         Target::Joint { id } => joint_items(app, *id),
         Target::ToolbarCommand { id } => crate::toolbar_custom::command_items(app, id),
         Target::Toolbar => crate::toolbar_custom::toolbar_items(app),
+        Target::HistoryControls => crate::timeline::transport_items(app),
         Target::Workspace => {
             let rendering = crate::render_workspace::active(app);
             let mut v = vec![
@@ -1492,6 +1495,11 @@ pub fn run_item(app: &mut SolveApp, item: &Item, at: Pos2) {
         "ui.canvasVisible" => drop(app.run("canvas.edit", p)),
         "ui.toolbarPin" | "ui.toolbarRemove" | "ui.toolbarReset" | "ui.toolbarCustomize" | "ui.shortcutPin" => {
             crate::toolbar_custom::run(app, &item.id, &p)
+        }
+        "ui.historyPlayButton" => {
+            if let Err(e) = crate::prefs::set(app, &json!({ "history_play_button": p["show"] })) {
+                app.set_status(e, true);
+            }
         }
         "ui.workspace" | "ui.workspace.design" | "ui.workspace.render" => {
             if let Some(workspace) = p.get("workspace").and_then(Value::as_str)

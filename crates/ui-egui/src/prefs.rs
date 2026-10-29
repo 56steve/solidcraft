@@ -965,6 +965,9 @@ preference_settings! {
     timeline_left_browser_collapsed: bool = false, PAGE_INTERFACE;
     /// Whether the History at the left lists a sketch under the feature built from it.
     history_sketches: HistorySketches = HistorySketches::default(), PAGE_INTERFACE;
+    /// A Play History button in the History controls, between Previous and Next (#3688). Off
+    /// gives the four controls History had before; right-clicking the controls toggles it too.
+    history_play_button: bool = true, PAGE_INTERFACE => check_id("prefs.history_play_button");
     /// The vertical history (left, or under the browser) starts with the active component's Bodies
     /// folder and the Origin, as the browser shows them (#6490). The bottom strip is unchanged.
     timeline_origin_bodies: bool = false, PAGE_INTERFACE;
@@ -4525,6 +4528,7 @@ mod tests {
             ("timeline_left", json!(true), PAGE_INTERFACE),
             ("timeline_under_browser", json!(true), PAGE_INTERFACE),
             ("history_sketches", json!("under_feature"), PAGE_INTERFACE),
+            ("history_play_button", json!(false), PAGE_INTERFACE),
             ("browser_float", json!(true), PAGE_INTERFACE),
             ("dialog_place", json!("left_column"), PAGE_INTERFACE),
             ("color_vision", json!("protan"), PAGE_INTERFACE),

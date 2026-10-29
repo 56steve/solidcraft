@@ -247,6 +247,7 @@ fn execute(app: &mut SolveApp, id: &str, params: Value) -> Result<Value, String>
                 | "view.angle_readout"
                 | "view.graphics_preset"
                 | "view.history_layout"
+                | "timeline.play"
                 | "browser.expand_all"
                 | "browser.collapse_all"
         )
