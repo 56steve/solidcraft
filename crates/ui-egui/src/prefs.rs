@@ -960,6 +960,9 @@ preference_settings! {
     /// The 3D view's colours: the theme's own, or the Light or Dark theme's whatever the window
     /// uses (#4146).
     viewport_theme: crate::theme::ViewportTheme = crate::theme::ViewportTheme::Theme, PAGE_INTERFACE;
+    /// The 3D view's background, one colour for the whole application (#7688), or `None` (the
+    /// default) for the theme's gradient.
+    viewport_background: Option<[u8; 3]> = None, PAGE_INTERFACE;
     /// The application bar's logo in the theme's accent instead of the theme's logo colours.
     logo_accent: bool = false, PAGE_INTERFACE;
     /// Imported theme files (`theme_files`), kept here so they also work in the browser.
@@ -4685,6 +4688,7 @@ mod tests {
             ("dialog_place", json!("left_column"), PAGE_INTERFACE),
             ("color_vision", json!("protan"), PAGE_INTERFACE),
             ("viewport_theme", json!("light"), PAGE_INTERFACE),
+            ("viewport_background", json!([255, 255, 255]), PAGE_INTERFACE),
             ("view_confirm_corner", json!(true), PAGE_INTERFACE),
             ("status_bar", json!(true), PAGE_INTERFACE),
             ("nav", json!("blender"), PAGE_NAVIGATION),
@@ -4896,6 +4900,44 @@ mod tests {
         assert!(h.call("ui.prefs", json!({"viewport_theme": "dim"}))["error"].is_string());
         let read: crate::theme::ViewportTheme = serde_json::from_value(json!("dim")).unwrap();
         assert_eq!(read, crate::theme::ViewportTheme::Theme);
+    }
+
+    /// The 3D view's background in one colour of the user's (#7688): `ui.prefs` sets it, the next
+    /// frame fills the view with it in either theme while the window keeps its colours, a picture
+    /// of the view has it too, and it is saved with the preferences. `null` gives back the theme's
+    /// gradient; a value that is not a colour is refused, and read from saved preferences it is
+    /// the gradient.
+    #[test]
+    fn the_3d_view_takes_a_background_colour_of_its_own() {
+        use crate::theme::{ColorVision, Tokens};
+        use serde_json::json;
+        let mut h = crate::scenario::Harness::new();
+        assert_eq!(h.app.preferences.viewport_background, None);
+        for (theme, view_dark) in [("light", false), ("dark", true)] {
+            let out = h.call("ui.prefs", json!({"theme": theme, "viewport_background": [255, 255, 255]}));
+            assert!(out["error"].is_null(), "{out}");
+            h.frames(2);
+            let (t, white) = (Tokens::get(), egui::Color32::WHITE);
+            assert_eq!((t.viewport_top, t.viewport_bottom, Tokens::view().viewport_top), (white, white, white), "{theme}");
+            assert_eq!(t.panel, Tokens::themed(view_dark, ColorVision::Off).panel, "{theme}: the window");
+            let scene = crate::control::view_scene(&h.app, solidcraft_engine::view::Guides::default());
+            let white = solidcraft_engine::render::Rgb(255, 255, 255);
+            assert_eq!(scene.background, Some((white, white)), "{theme}: a picture of the view");
+        }
+
+        let mut other = crate::SolveApp::new(solidcraft_engine::Session::default(), crate::Services::default());
+        other.load_prefs(&h.app.prefs());
+        assert_eq!(other.preferences.viewport_background, Some([255, 255, 255]));
+
+        h.call("ui.prefs", json!({"viewport_background": null}));
+        h.frames(2);
+        let (t, dark) = (Tokens::get(), Tokens::dark());
+        assert_eq!((t.viewport_top, t.viewport_bottom), (dark.viewport_top, dark.viewport_bottom), "the theme's gradient again");
+
+        for bad in [json!([256, 0, 0]), json!("white"), json!([1, 2])] {
+            assert!(h.call("ui.prefs", json!({"viewport_background": bad}))["error"].is_string(), "{bad}");
+            assert_eq!(lenient(&json!({"viewport_background": bad})).viewport_background, None, "{bad}");
+        }
     }
 
     /// The theme strip's Import… reads the theme file through `vfs`, like the other imports: in the
