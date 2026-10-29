@@ -1402,6 +1402,15 @@ const ELEMENTS: &[Element] = &[
     element!("caption", "dialog:caption:Gallery", None, |ui, _| {
         caption(ui, "Gallery", "Construction");
     }),
+    element!("status_line", "dialog:status:needs a joint that turns and one that slides", None, |ui, _| {
+        status_line(ui, "needs a joint that turns and one that slides", StatusTone::Dim);
+    }),
+    element!("status_line_warning", |ui, _| {
+        status_line(ui, "Pick two different components before creating a joint.", StatusTone::Warning);
+    }),
+    element!("status_line_error", |ui, _| {
+        status_line(ui, "The interference check could not finish. Check the selected bodies.", StatusTone::Error);
+    }),
     element!("figure_rows", "dialog:figure:gallery", Some("dialog:Gallery"), |ui, s| {
         let Sample { value, second, .. } = s;
         figure_rows(ui, "gallery", &mut [("Gallery", value), ("Second", second)], |painter, rect, slots| {

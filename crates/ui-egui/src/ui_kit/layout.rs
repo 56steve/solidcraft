@@ -171,6 +171,28 @@ pub(crate) fn row<R>(ui: &mut Ui, text: &str, control: impl FnOnce(&mut Ui) -> R
     sized_row(ui, text, row_height(), control)
 }
 
+/// Semantic ink for a form's explanatory message.
+#[derive(Clone, Copy)]
+pub(crate) enum StatusTone {
+    Dim,
+    Warning,
+    Error,
+}
+
+/// Full-width, wrapping status or refusal text. Place directly in the form, outside a `row`:
+/// rows clip their controls to one line. Tokens: `font_label, text_dim, warning, error`.
+pub(crate) fn status_line(ui: &mut Ui, text: &str, tone: StatusTone) -> Response {
+    let t = Tokens::get();
+    let ink = match tone {
+        StatusTone::Dim => t.text_dim,
+        StatusTone::Warning => t.warning,
+        StatusTone::Error => t.error,
+    };
+    let response = ui.add(egui::Label::new(RichText::new(crate::i18n::tr_label(text)).size(t.font_label).color(ink)).wrap());
+    scenario::publish_rect(&format!("dialog:status:{text}"), response.rect);
+    response
+}
+
 /// Declarative expression row; retains the field's completion and accepted Enter. Tokens: `row, field`.
 pub(crate) fn expr_row(ui: &mut Ui, label: &str, value: &mut String) -> bool {
     row(ui, label, |ui| super::field(ui, value))

@@ -1262,6 +1262,7 @@ mod tests {
     const KIT_CALLS: &[KitCall] = &[
         // layout.rs: `sized_row` draws `tr_label(text)`, and every row builder reaches it.
         KitCall { name: "row", args: &[1], id: false, trim: &[1] },
+        KitCall { name: "status_line", args: &[1], id: false, trim: &[] },
         KitCall { name: "expr_row", args: &[1], id: false, trim: &[1] },
         KitCall { name: "hint_row", args: &[1], id: false, trim: &[1] },
         KitCall { name: "text_row", args: &[1], id: false, trim: &[1] },
@@ -1946,7 +1947,7 @@ mod tests {
 
     /// The names the hand-written kit probes import, exactly as a UI file would.
     const KIT_IMPORTS: &str = concat!(
-        "use crate::ui_kit::{row, expr_row, hint_row, text_row, choice_row, section, section_count, ",
+        "use crate::ui_kit::{row, status_line, expr_row, hint_row, text_row, choice_row, section, section_count, ",
         "multiline_text_field, dropdown, cell_editor, bounded_cell_editor, search_field, placement_field, ",
         "library_cell, icon_button_at, icon_button_colored, footer, button, primary_button, ",
         "wide_primary_button, action_menu, compact_button, icon_label_button, command_menu_button, ",
@@ -1970,6 +1971,7 @@ mod tests {
     fn every_kit_call_is_read_at_its_real_signature() {
         let cases: &[(&str, &[&str])] = &[
             ("row(ui, \"row\", |ui| {})", &["row"]),
+            ("status_line(ui, \"status_line\", StatusTone::Dim)", &["status_line"]),
             ("expr_row(ui, \"expr_row\", value)", &["expr_row"]),
             ("hint_row(ui, \"hint_row\", value, hint)", &["hint_row"]),
             ("text_row(ui, \"text_row\", value, hint)", &["text_row"]),
