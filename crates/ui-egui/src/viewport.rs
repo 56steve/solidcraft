@@ -941,7 +941,7 @@ fn hash_look(look: Option<&solidcraft_engine::doc::appearance::Look>, h: &mut im
 }
 
 /// What a body's resolved look depends on: its geometry (imported paint), the body/component
-/// looks, its material, its face appearances, and component colouring.
+/// looks, its material and that material's look, its face appearances, and component colouring.
 fn body_appearance_key(
     doc: &solidcraft_engine::doc::Document,
     b: &solidcraft_engine::doc::ModelBody,
@@ -954,7 +954,9 @@ fn body_appearance_key(
     let name = b.definition_name();
     hash_look(doc.appearances.bodies.get(name), &mut h);
     hash_look(doc.appearances.components.get(&b.component), &mut h);
-    doc.materials.get(name).hash(&mut h);
+    let material = doc.materials.get(name);
+    material.hash(&mut h);
+    hash_look(material.and_then(|m| doc.material_look(m)).as_ref(), &mut h);
     faces.get(name).copied().unwrap_or(0).hash(&mut h);
     colored.hash(&mut h);
     if colored {
