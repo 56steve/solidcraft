@@ -26,7 +26,9 @@ channel changes neither for a normal launch.
 
 Each app that opens its channel writes the port to a discovery file beside the token files,
 `control/current.port` (same folders and permissions as below), and removes it at exit if no later
-app has replaced it. It holds only the port, never the token. `solidcraft-cli mcp` with no
+app has replaced it: it names another port, or another app now holds that port's token file (two
+Flatpak windows, each with its own loopback, can listen on the same port number). It holds only
+the port, never the token. `solidcraft-cli mcp` with no
 arguments reads it, checks that something listens there and bridges to that app; with no app
 running, or with `--headless`, it runs a session of its own. `--connect HOST:PORT` and the
 other arguments still decide first. With several windows open, the most recently started one is
@@ -52,7 +54,8 @@ launch and writes it, as one line of hex, to a file only the user can read:
 
 On Unix the folder is `0700` and the file `0600`; on Windows the file's inherited permissions are
 replaced by a single entry for the user. `SOLIDCRAFT_CONTROL_DIR` moves the folder. The file is
-removed when the app exits, and the next launch writes a new token. The token file's path is
+removed when the app exits, unless another launch has written its own token there since, and the
+next launch writes a new token. The token file's path is
 printed to stderr at start-up. Beside it, `<port>.pid` holds the app's process id (and, on Linux,
 its start time).
 
