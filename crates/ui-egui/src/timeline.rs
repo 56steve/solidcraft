@@ -910,7 +910,19 @@ fn timeline_contents(app: &mut SolveApp, ui: &mut egui::Ui, floating: bool) {
                     ui.scroll_to_rect(br, Some(egui::Align::Center));
                 }
                 crate::scenario::publish_handle(&format!("timeline:{name}"), br.center());
-                let resp = ui.interact(br, ui.id().with(("feat", *id)), Sense::click_and_drag());
+                // A chip scrolled out of the strip is neither drawn nor interactive: a long
+                // history drew every chip each frame. Its slot above still places the marker and drops.
+                // One being dragged or focused, or under an open menu, stays alive until that ends.
+                let chip_id = ui.id().with(("feat", *id));
+                if !ui.clip_rect().intersects(br)
+                    && drag != Some(Drag::Feature(*id))
+                    && !ui.memory(|m| m.has_focus(chip_id))
+                    && !egui::Popup::is_any_open(ui.ctx())
+                {
+                    x += 32.0;
+                    continue;
+                }
+                let resp = ui.interact(br, chip_id, Sense::click_and_drag());
                 // A feature without a result has none; an index that no longer holds this id (a
                 // command run from an earlier chip evaluated again) is searched for.
                 let res =
@@ -1622,6 +1634,50 @@ mod tests {
         let moved = crate::scenario::handle_at("timeline:S0").unwrap();
         assert!(moved.x < first.x - 100.0, "the wheel scrolled the timeline: {first:?} → {moved:?}");
         assert_eq!(moved.y, first.y);
+    }
+
+    /// A long timeline paints only the chips in view, and those past the window still keep their
+    /// places: scrolled into view, the last one is drawn where its handle says.
+    #[test]
+    fn a_long_timeline_paints_only_the_chips_in_view() {
+        let mut h = Harness::new();
+        for i in 0..200 {
+            h.app.run("sketch.create", json!({"plane": "XY", "name": format!("S{i}")})).unwrap();
+            h.app.run("sketch.finish", json!({})).unwrap();
+        }
+        h.frames(4);
+        let width = h.app.shell.history.unwrap().right();
+        // Past the window, only the history marker at the end of the strip.
+        let past = |h: &Harness| {
+            let marker = crate::scenario::rect_of("history:marker").unwrap().expand(2.0);
+            let drawn = h.shapes.iter().map(|s| s.shape.visual_bounding_rect()).filter(|r| r.is_finite());
+            drawn.filter(|r| r.left() > width && !marker.contains_rect(*r)).count()
+        };
+        assert!(crate::scenario::handle_at("timeline:S199").unwrap().x > width, "the last chip starts past the window");
+        assert_eq!(past(&h), 0, "nothing is painted past the window");
+        let found = h.app.session.doc.find_feature("S199").unwrap().id;
+        h.app.tree.timeline_reveal = Some(found);
+        h.frames(30);
+        let last = crate::scenario::handle_at("timeline:S199").unwrap();
+        assert!(h.app.shell.history.unwrap().contains(last), "the last chip scrolled into view: {last:?}");
+        h.step(&json!({"click": {"handle": "timeline:S199"}})).unwrap();
+        h.frames(2);
+        assert_eq!(h.app.session.selection, [solidcraft_engine::Sel::Feature { id: found }], "the drawn chip is the one clicked");
+
+        // Scrolled to the end, the chips out of view on the left still hold their slots.
+        let target = crate::scenario::handle_at("timeline:S180").unwrap();
+        let marker = crate::scenario::rect_of("history:marker").unwrap().center();
+        h.step(&json!({"drag": [[marker.x, marker.y], [target.x - 12.0, target.y]]})).unwrap();
+        h.settle();
+        assert_eq!(h.app.session.doc.marker, Some(180), "the marker dropped before S180");
+        h.app.run("timeline.roll_to", json!({})).unwrap();
+        h.settle();
+
+        // A range picked across chips out of view takes every feature between its ends.
+        h.app.tree.timeline_reveal = h.app.session.doc.find_feature("S0").map(|f| f.id);
+        h.frames(30);
+        h.step(&json!({"click": {"handle": "timeline:S0"}, "shift": true})).unwrap();
+        assert_eq!(super::selected_feature_ids(&h.app).len(), 200);
     }
 
     /// Find in Timeline on the last body of a history longer than the timeline scrolls its
