@@ -1867,6 +1867,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift يضيف فقط، وCtrl / Cmd يبدّل",
   "prefs.shift_add_note": "عند التشغيل: Shift يضيف، وCtrl / Cmd يبدّل. عند الإيقاف (الافتراضي): كلاهما يبدّل.",
   "prefs.shortcuts": "الاختصارات",
+  "prefs.sketch_conflict_colour": "الهندسة المتعارضة بلون التعارض",
+  "prefs.sketch_conflict_colour_note": "عندما تتعارض قيود الرسم، تُرسم المنحنيات والنقاط التي يمسكها قيد فاشل بلون التعارض أيضًا، لا رمزه أو بُعده فقط. عند الإيقاف: تحتفظ بألوانها المعتادة.",
   "prefs.sketch_exit_view": "عند انتهاء الرسم",
   "prefs.sketch_exit_view.keep": "إبقاء العرض الحالي",
   "prefs.sketch_exit_view.previous": "العودة إلى العرض السابق",

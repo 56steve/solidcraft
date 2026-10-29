@@ -1867,6 +1867,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift 仅添加；Ctrl / Cmd 切换选择",
   "prefs.shift_add_note": "开启：Shift 添加，Ctrl / Cmd 切换选择。关闭（默认）：两者均切换选择。",
   "prefs.shortcuts": "快捷键",
+  "prefs.sketch_conflict_colour": "以冲突颜色显示冲突的几何图形",
+  "prefs.sketch_conflict_colour_note": "草图约束冲突时，不仅失败约束的符号或尺寸，该约束所约束的曲线和点也以冲突颜色绘制。关闭：它们保持平常的颜色。",
   "prefs.sketch_exit_view": "草图结束时的视图",
   "prefs.sketch_exit_view.keep": "保持当前视图",
   "prefs.sketch_exit_view.previous": "返回之前的视图",

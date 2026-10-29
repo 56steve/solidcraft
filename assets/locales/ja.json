@@ -1867,6 +1867,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift は追加のみ、Ctrl / Cmd は選択を切り替え",
   "prefs.shift_add_note": "オン：Shift は追加、Ctrl / Cmd は選択を切り替えます。オフ（既定）：どちらも選択を切り替えます。",
   "prefs.shortcuts": "ショートカット",
+  "prefs.sketch_conflict_colour": "競合するジオメトリを競合色で表示",
+  "prefs.sketch_conflict_colour_note": "スケッチの拘束が競合している間、満たされない拘束のグリフや寸法だけでなく、その拘束が保持する曲線と点も競合色で描画します。オフ: 通常の色のままです。",
   "prefs.sketch_exit_view": "スケッチ終了時のビュー",
   "prefs.sketch_exit_view.keep": "現在のビューを維持",
   "prefs.sketch_exit_view.previous": "前のビューに戻る",

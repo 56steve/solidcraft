@@ -1805,6 +1805,8 @@
   "prefs.origin_plane_names_note": "Namen in Browser, Dialogen und Listen. {top} ist XY, {front} ist XZ und {right} ist YZ, mit Z nach oben. Befehle, Skripte und gespeicherte Konstruktionen behalten XY, XZ und YZ.",
   "prefs.search": "Einstellungen suchen",
   "prefs.search_empty": "Keine passenden Einstellungen",
+  "prefs.sketch_conflict_colour": "Widersprüchliche Geometrie in der Konfliktfarbe",
+  "prefs.sketch_conflict_colour_note": "Solange die Bedingungen einer Skizze im Konflikt stehen, werden auch die Kurven und Punkte, die eine nicht erfüllte Bedingung hält, in der Konfliktfarbe gezeichnet, nicht nur ihr Symbol oder ihre Bemaßung. Aus: Sie behalten ihre üblichen Farben.",
   "prefs.sketch_state_icons": "Skizzensymbole in der Farbe ihres Zustands",
   "prefs.sketch_state_icons_note": "Im Verlauf und im Browser nimmt das Symbol einer Skizze die Farbe ihres Zustands an (unterbestimmt, vollständig bestimmt oder im Konflikt), und ihr Tooltip nennt den Zustand. Aus: Alle Skizzen haben dasselbe Symbol.",
   "prefs.sketch_tab_always": "Registerkarte Skizze immer zeigen",

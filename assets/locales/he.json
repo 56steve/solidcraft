@@ -1867,6 +1867,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift מוסיף בלבד; Ctrl / Cmd מחליף מצב",
   "prefs.shift_add_note": "כשפועל: Shift מוסיף, Ctrl / Cmd מחליף מצב. כשכבוי (ברירת מחדל): שניהם מחליפים מצב.",
   "prefs.shortcuts": "קיצורים",
+  "prefs.sketch_conflict_colour": "גאומטריה סותרת בצבע הסתירה",
+  "prefs.sketch_conflict_colour_note": "כשאילוצי סקיצה סותרים, העקומות והנקודות שאילוץ כושל מחזיק מצוירות גם הן בצבע הסתירה, לא רק הסמל או המידה שלו. כבוי: הן שומרות על צבעיהן הרגילים.",
   "prefs.sketch_exit_view": "בסיום סקיצה",
   "prefs.sketch_exit_view.keep": "שמירה על התצוגה הנוכחית",
   "prefs.sketch_exit_view.previous": "חזרה לתצוגה הקודמת",

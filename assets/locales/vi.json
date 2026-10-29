@@ -1867,6 +1867,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift chỉ thêm; Ctrl / Cmd đảo trạng thái chọn",
   "prefs.shift_add_note": "Bật: Shift để thêm vào vùng chọn, Ctrl / Cmd để đảo chọn. Tắt (mặc định): cả hai đều đảo trạng thái chọn.",
   "prefs.shortcuts": "Phím tắt",
+  "prefs.sketch_conflict_colour": "Hình học xung đột theo màu xung đột",
+  "prefs.sketch_conflict_colour_note": "Khi các ràng buộc của bản phác xung đột, các đường cong và điểm mà một ràng buộc lỗi giữ cũng được vẽ bằng màu xung đột, không chỉ ký hiệu hay kích thước của nó. Tắt: chúng giữ màu thường.",
   "prefs.sketch_exit_view": "Khi kết thúc phác thảo",
   "prefs.sketch_exit_view.keep": "Giữ góc nhìn hiện tại",
   "prefs.sketch_exit_view.previous": "Trở về góc nhìn trước đó",

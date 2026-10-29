@@ -1849,6 +1849,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift voegt alleen toe; Ctrl / Cmd schakelt om",
   "prefs.shift_add_note": "Aan: Shift voegt toe, Ctrl / Cmd schakelt om. Uit (standaard): beide schakelen om.",
   "prefs.shortcuts": "Sneltoetsen",
+  "prefs.sketch_conflict_colour": "Conflicterende geometrie in de conflictkleur",
+  "prefs.sketch_conflict_colour_note": "Zolang de beperkingen van een schets conflicteren, worden ook de curven en punten die een niet-vervulde beperking vasthoudt in de conflictkleur getekend, niet alleen het symbool of de maat ervan. Uit: ze houden hun gewone kleuren.",
   "prefs.sketch_exit_view": "Wanneer een schets eindigt",
   "prefs.sketch_exit_view.keep": "De huidige weergave behouden",
   "prefs.sketch_exit_view.previous": "Terug naar de vorige weergave",

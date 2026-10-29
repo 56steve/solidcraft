@@ -1577,6 +1577,8 @@
   "prefs.shift_add_ctrl_toggle": "Shift는 추가만, Ctrl / Cmd는 토글",
   "prefs.shift_add_note": "켬: Shift는 추가, Ctrl / Cmd는 토글. 끔(기본값): 둘 다 토글.",
   "prefs.shortcuts": "단축키",
+  "prefs.sketch_conflict_colour": "충돌하는 기하를 충돌 색상으로 표시",
+  "prefs.sketch_conflict_colour_note": "스케치의 구속 조건이 충돌하는 동안 실패한 구속 조건의 글리프나 치수뿐 아니라 그 구속 조건이 잡고 있는 곡선과 점도 충돌 색상으로 그립니다. 끄기: 평소 색상을 유지합니다.",
   "prefs.sketch_selection": "스케치 및 선택",
   "prefs.sketch_selection_heading": "스케치 및 선택",
   "prefs.sketch_selection_note": "스케치가 스냅되는 방식과 클릭으로 선택하는 방식입니다.",
