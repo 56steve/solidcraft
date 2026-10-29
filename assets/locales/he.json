@@ -1236,6 +1236,7 @@
   "color.linear": "ערכי הצבע מוצגים במרחב לינארי 0-1",
   "color.saturation_value": "רוויה ובהירות",
   "color.selected": "הצבע שנבחר",
+  "config.column_filter_empty": "אין עמודות תואמות",
   "contact.components_count": "{count} רכיבים",
   "contact.enabled_label": "מופעל",
   "coupling.gear_1": "גלגל שיניים 1",

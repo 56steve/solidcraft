@@ -1227,6 +1227,7 @@
   "color.linear": "Farbwerte im linearen Raum 0-1 anzeigen",
   "color.saturation_value": "Sättigung und Wert",
   "color.selected": "Ausgewählte Farbe",
+  "config.column_filter_empty": "Keine passenden Spalten",
   "contact.components_count": "{count} Komponenten",
   "contact.enabled_label": "aktiviert",
   "coupling.gear_1": "Zahnrad 1",

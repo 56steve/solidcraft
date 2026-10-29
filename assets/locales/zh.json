@@ -1236,6 +1236,7 @@
   "color.linear": "以 0–1 线性空间显示颜色值",
   "color.saturation_value": "饱和度和明度",
   "color.selected": "所选颜色",
+  "config.column_filter_empty": "没有匹配的列",
   "contact.components_count": "{count} 个组件",
   "contact.enabled_label": "已启用",
   "coupling.gear_1": "齿轮 1",

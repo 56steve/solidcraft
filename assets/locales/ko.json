@@ -1085,6 +1085,7 @@
   "color.linear": "색상 값을 0-1 선형 공간으로 표시 중",
   "color.saturation_value": "채도 및 명도",
   "color.selected": "선택한 색상",
+  "config.column_filter_empty": "일치하는 열이 없습니다",
   "contact.components_count": "구성요소 {count}개",
   "contact.enabled_label": "활성화됨",
   "coupling.gear_1": "기어 1",

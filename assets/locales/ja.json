@@ -1236,6 +1236,7 @@
   "color.linear": "0〜1の線形空間で色の値を表示",
   "color.saturation_value": "彩度と明度",
   "color.selected": "選択した色",
+  "config.column_filter_empty": "一致する列がありません",
   "contact.components_count": "{count}個のコンポーネント",
   "contact.enabled_label": "有効",
   "coupling.gear_1": "ギア 1",

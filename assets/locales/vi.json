@@ -1236,6 +1236,7 @@
   "color.linear": "Đang hiển thị giá trị màu trong không gian tuyến tính 0-1",
   "color.saturation_value": "Độ bão hòa và giá trị",
   "color.selected": "Màu đã chọn",
+  "config.column_filter_empty": "Không có cột phù hợp",
   "contact.components_count": "{count} chi tiết",
   "contact.enabled_label": "đã bật",
   "coupling.gear_1": "Bánh răng 1",

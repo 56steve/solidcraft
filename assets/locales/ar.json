@@ -1236,6 +1236,7 @@
   "color.linear": "عرض قيم اللون في النطاق الخطي 0-1",
   "color.saturation_value": "التشبع والقيمة",
   "color.selected": "اللون المحدد",
+  "config.column_filter_empty": "لا توجد أعمدة مطابقة",
   "contact.components_count": "{count} مكوّنات",
   "contact.enabled_label": "مفعّل",
   "coupling.gear_1": "الترس 1",
