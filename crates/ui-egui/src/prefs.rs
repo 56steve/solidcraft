@@ -5069,6 +5069,30 @@ mod tests {
         assert_eq!(app.preferences.ui_font, "");
     }
 
+    /// The web app's open tabs share their settings (#8644): a running tab loads what another
+    /// tab wrote over settings of its own. Everything it had changed is replaced, a pin or a
+    /// shortcut the other tab doesn't have included, so both tabs then save the same settings.
+    #[test]
+    fn settings_loaded_over_changed_ones_replace_them_all() {
+        let new_app = || crate::SolveApp::new(solidcraft_engine::Session::default(), crate::Services::default());
+        let mut writer = new_app();
+        writer.sbox.toggle_pin("sketch.line");
+        writer.ui.dark = !writer.ui.dark;
+        writer.keymap.custom.insert("view.fit".into(), vec!["Shift+F".into()]);
+        let mut reader = new_app();
+        reader.sbox.toggle_pin("feature.extrude");
+        reader.keymap.custom.insert("view.home".into(), vec!["H".into()]);
+        reader.toolbar_custom.panels.insert(format!("{}/SOLID/CREATE", crate::toolbar_custom::WORKSPACE), vec!["feature.extrude".into()]);
+        reader.tree.collapsed.insert("Bodies".into());
+        reader.home.recent.push("part.solidcraft".into());
+        reader.preferences.ui_scale = 1.5;
+        reader.load_prefs(&writer.prefs());
+        assert_eq!(reader.sbox.pinned, ["sketch.line"], "the other tab's pins, not this tab's");
+        assert!(!reader.keymap.custom.contains_key("view.home"));
+        assert_eq!(reader.ui.dark, writer.ui.dark);
+        assert_eq!(reader.prefs(), writer.prefs(), "both tabs save the same settings");
+    }
+
     /// Bodies folders (#4217): Several bodies only by default, also in preferences saved before it
     /// existed. Each value is saved and read back; `ui.prefs` refuses anything else and changes
     /// nothing, and saved preferences read such a value as the default and keep the rest. The
