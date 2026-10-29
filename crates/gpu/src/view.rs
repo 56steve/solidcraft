@@ -761,6 +761,15 @@ impl BlockBuilder {
         self.hidden.extend_from_slice(&line_record(a, b, c, width.to_bits()));
     }
 
+    /// A vertex marker: a square `size` pixels across at `p`, the same size at every zoom. It is a
+    /// line from `p` to itself (the line shader caps each end by half its width), lifted toward
+    /// the eye by half its size so a face through the vertex seen at a slant does not bury half of
+    /// it; `hidden` draws it only where the model hides it, as a hidden edge.
+    pub fn marker(&mut self, p: [f32; 3], c: PaletteIndex, size: f32, hidden: bool) {
+        let out = if hidden { &mut self.hidden } else { &mut self.lines };
+        out.extend_from_slice(&line_record(p, p, c, lifted_width(size, [[0.0; 3]; 2])));
+    }
+
     /// How many vertices the block holds so far.
     pub fn vertices_len(&self) -> usize {
         self.vertices.len() / TRI_SIZE
@@ -4539,6 +4548,63 @@ mod glass_tests {
         let mut block = BlockBuilder::default();
         block.line(a, b, c, 1.5);
         assert_eq!(*block.freeze().lines, expected);
+    }
+
+    /// A vertex marker (#7834) is a lifted line from the vertex to itself, among the block's
+    /// lines or, hidden, among its hidden lines.
+    #[test]
+    fn a_marker_is_a_lifted_line_to_itself() {
+        let (p, c) = ([1.0f32, -2.0, 3.5], PaletteIndex(4));
+        let mut block = BlockBuilder::default();
+        block.marker(p, c, 4.0, false);
+        block.marker(p, c, 4.0, true);
+        let bytes = block.freeze();
+        let mut sc = GpuScene::default();
+        sc.lifted_line(p, p, c, 4.0, [[0.0; 3]; 2]);
+        assert_eq!(*bytes.lines, sc.lines);
+        assert_eq!(*bytes.hidden, sc.lines);
+    }
+
+    /// A marker shows as a square of its size at its vertex, over a face through the vertex even
+    /// where the face rises toward the eye beside it (lifted, as a highlight band), and not
+    /// through a face in front of it; a hidden marker shows only there. Skipped without a GPU.
+    #[test]
+    fn a_marker_shows_over_a_slanted_face_and_hides_behind_one() {
+        let face = |sc: &mut GpuScene, slope: f32, z: f32, x0: f32| {
+            let grey = sc.color([128, 128, 128, 255]);
+            // A plane through (x0, 0, z), rising toward the eye (+z) along +x.
+            let at = |x: f32, y: f32| [x, y, z + slope * (x - x0)];
+            let n = [-slope, 0.0, 1.0];
+            for t in [[at(-9.0, -9.0), at(9.0, -9.0), at(9.0, 9.0)], [at(-9.0, -9.0), at(9.0, 9.0), at(-9.0, 9.0)]] {
+                for p in t {
+                    sc.tri(p, n, grey);
+                }
+            }
+        };
+        // The middle pixel's centre is 0.16 mm right of the view's centre (0.31 mm a pixel): a
+        // marker 0.3 mm left of it still covers that pixel, where the face stands 0.69 mm nearer
+        // the eye than the vertex.
+        let x0 = -0.3;
+        let marker = |hidden: bool| {
+            let mut b = BlockBuilder::default();
+            b.marker([x0, 0.0, 0.0], PaletteIndex(0), 4.0, hidden);
+            SceneBlock { key: u64::from(hidden), bytes: b.freeze() }
+        };
+        let scene = |slope: f32, z: f32, hidden: bool| {
+            let mut sc = GpuScene::with_palette(Palette::with_stable(vec![[255, 0, 0, 255]]));
+            face(&mut sc, slope, z, x0);
+            sc.blocks.push(marker(hidden));
+            sc
+        };
+        let red = [255, 0, 0, 255];
+        let Some(slanted) = middle_pixel(scene(1.5, 0.0, false), false) else {
+            eprintln!("skipping: no GPU adapter");
+            return;
+        };
+        assert_eq!(slanted, red, "on a slanted face through the vertex");
+        assert_ne!(middle_pixel(scene(0.0, 5.0, false), false), Some(red), "behind a face in front");
+        assert_eq!(middle_pixel(scene(0.0, 5.0, true), false), Some(red), "a hidden marker behind a face in front");
+        assert_ne!(middle_pixel(scene(1.5, 0.0, true), false), Some(red), "no hidden marker where it is seen");
     }
 
     /// Without order-independent transparency, the sorted glass stream is kept while the blocks'
