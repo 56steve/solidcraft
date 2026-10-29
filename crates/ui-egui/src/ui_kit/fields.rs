@@ -569,6 +569,45 @@ pub(crate) fn searchable_icon_dropdown(
     searchable_dropdown_with(ui, "icon_search_menu", label, filter, options, SearchMenu { custom: None, pending: None, icon: Some(icon) })
 }
 
+/// The filter at the top of a long menu: a search glyph, a frameless editor and a rule under
+/// them, so it reads as the menu's search box and not as one more entry. Tokens: `space_8/16,
+/// font_label, form_dim, form_ink, dialog_rule`.
+pub(crate) fn menu_filter(ui: &mut Ui, id: egui::Id, value: &mut String, hint: &str) -> Response {
+    let t = Tokens::get();
+    let (rect, _) = ui.allocate_exact_size(vec2(dimension(ui.available_width()), row_height()), egui::Sense::hover());
+    let glyph = egui::Rect::from_center_size(egui::pos2(rect.left() + t.space_8 + t.space_16 / 2.0, rect.center().y), vec2(t.space_16, t.space_16));
+    crate::icons::paint_ink(ui.painter(), glyph, "zoom", t.form_dim);
+    let field = egui::Rect::from_min_max(egui::pos2((glyph.right() + t.space_8).min(rect.right()), rect.top()), rect.max);
+    let hint_text = crate::i18n::tr_label(hint);
+    let response = ui
+        .scope_builder(egui::UiBuilder::new().max_rect(field).layout(egui::Layout::left_to_right(egui::Align::Center)), |ui| {
+            ui.set_clip_rect(ui.clip_rect().intersect(field));
+            ui.add_sized(
+                field.size(),
+                text_input(egui::TextEdit::singleline(value))
+                    .id(id)
+                    .char_limit(256)
+                    .hint_text(hint_text)
+                    .font(egui::FontId::proportional(t.font_label))
+                    .text_color(t.form_ink)
+                    .frame(egui::Frame::NONE)
+                    .clip_text(true),
+            )
+        })
+        .inner;
+    response.widget_info(|| {
+        let mut info = egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), hint_text);
+        info.current_text_value = Some(value.clone());
+        info
+    });
+    super::layout::publish_geometry(ui, &response);
+    if ui.rect_contains_pointer(rect) {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
+    }
+    super::Menu::separator(ui);
+    response
+}
+
 /// Behaviour of the one kit slider. Appearance is always owned by `slider`.
 /// Values/ranges stay in caller units; formatting never rounds saved values during drawing.
 pub(crate) struct Slider {
