@@ -184,6 +184,9 @@ pub struct ViewportState {
     /// A device app's motion since the page last took it (`space_mouse::bridge_frame`), applied
     /// the same way.
     pub bridge_motion: Option<crate::space_mouse::BridgeMotion>,
+    /// The model point the 3D mouse turns the view around: chosen when the cap leaves rest and
+    /// kept until it comes back (`navigation::device`, `space_mouse::navigate_frame`).
+    pub device_pivot: Option<Vec3>,
     /// After immediate zoom, ignore egui's outstanding smoothing until the gesture ends.
     pub(crate) wheel_zoom_raw_until_idle: bool,
     /// While trackpad scrolling runs, ignore egui's smoothing tail for zoom so
@@ -4818,6 +4821,7 @@ pub fn show(app: &mut SolveApp, ui: &mut egui::Ui) {
     }
     crate::joint_handles::show(app, ui, &painter, &proj);
     overlays(app, &painter, &proj);
+    paint_device_pivot(app, &painter, &proj);
     crate::dim_view::show(app, ui, &painter, &proj);
     crate::sketch_text_handles::show(app, ui, &painter, &proj, hover);
     crate::sketch3d::show(app, &painter, &proj);
@@ -5809,6 +5813,16 @@ pub(crate) fn standalone_points(app: &SolveApp) -> Vec<Vec3> {
 }
 
 /// Sketch points and the status of the active sketch (constraint glyphs: `sketch_tools`).
+/// The point the 3D mouse is turning the view around, as a faint ball, so the user sees what the
+/// turn holds still (#7435). Lighter, smaller discs stacked toward the top left give it its shading.
+fn paint_device_pivot(app: &SolveApp, painter: &egui::Painter, proj: &Proj) {
+    let Some(p) = app.viewport.device_pivot.and_then(|p| proj.to_screen(p)) else { return };
+    let t = Tokens::get();
+    painter.circle(p, 8.0, t.accent.gamma_multiply(0.18), Stroke::new(1.0, t.accent.gamma_multiply(0.5)));
+    painter.circle_filled(p + vec2(-1.5, -1.5), 5.0, t.accent.gamma_multiply(0.2));
+    painter.circle_filled(p + vec2(-2.5, -2.5), 2.5, t.accent.gamma_multiply(0.3));
+}
+
 fn overlays(app: &SolveApp, painter: &egui::Painter, proj: &Proj) {
     let t = Tokens::get();
     let st = crate::open_meshing::shown_world(app);
