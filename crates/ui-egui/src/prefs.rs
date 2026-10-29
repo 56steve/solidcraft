@@ -241,7 +241,7 @@ impl NavPreset {
         }
     }
 
-    fn translated_label(&self) -> &str {
+    pub(crate) fn translated_label(&self) -> &str {
         if self.id == TOUCHPAD_NAV { crate::i18n::tr("nav.touchpad.label") } else { crate::i18n::tr_label(self.label) }
     }
 }
