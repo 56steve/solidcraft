@@ -1371,6 +1371,52 @@ impl Snapshot {
             save_graphics(app);
         }
     }
+
+    /// Whether everything is as in the snapshot: nothing Cancel would put back. Destructured, so
+    /// a setting added to the snapshot can't be left out of the comparison.
+    fn matches(&self, app: &SolveApp) -> bool {
+        let Snapshot {
+            prefs,
+            dark,
+            layout,
+            grid,
+            navigation_bar,
+            tool_cursor,
+            shadow,
+            perspective,
+            style,
+            pick_bodies,
+            agent,
+            autosave,
+            auto_project,
+            keys,
+        } = self;
+        *prefs == app.preferences
+            && *dark == app.ui.dark
+            && *layout == app.ui.layout
+            && *grid == app.ui.show_grid
+            && *navigation_bar == app.ui.show_navigation_bar
+            && *tool_cursor == app.ui.tool_cursor
+            && *shadow == app.ui.ground_shadow
+            && *perspective == app.ui.perspective
+            && *style == app.ui.visual_style
+            && *pick_bodies == app.ui.pick_bodies
+            && *agent == app.ui.agent_cursor
+            && *autosave == app.autosave_minutes
+            && *auto_project == app.session.auto_project
+            && *keys == app.keymap.custom
+    }
+}
+
+/// Whether Apply has anything to do (#8561): something changed since the dialog opened or since
+/// the last Apply. False while the dialog is closed.
+fn apply_pending(app: &mut SolveApp) -> bool {
+    let Some(snapshot) = app.prefs_window.snapshot.as_mut() else {
+        return false;
+    };
+    // Update bookkeeping isn't a setting and Cancel keeps it (`restore`), so it isn't a change.
+    snapshot.prefs.update.clone_from(&app.preferences.update);
+    app.prefs_window.snapshot.as_ref().is_some_and(|s| !s.matches(app))
 }
 
 /// The colour theme (#2255): Dark, Light, System, the built-in theme files and the imported
@@ -1985,6 +2031,7 @@ pub fn show(app: &mut SolveApp, ctx: &egui::Context) {
     let mut button: Option<&str> = None;
     let before = app.preferences.clone();
     let capturing = crate::keymap::capturing(app);
+    let pending = apply_pending(app);
     let window = ui_kit::Window::new(egui::Id::new("sc_prefs"), "settings", app.tr("ui.preferences"))
         .cards(10.0 / 3.0)
         .page_rows(24.0)
@@ -1995,7 +2042,8 @@ pub fn show(app: &mut SolveApp, ctx: &egui::Context) {
             bottom: (Tokens::get().space_16 + Tokens::get().space_4) as i8,
         })
         .fields()
-        .actions("OK", "Cancel", Some("Apply"));
+        .actions("OK", "Cancel", Some("Apply"))
+        .apply_enabled(pending);
     let window = if capturing { window.keep_open_on_escape() } else { window };
     let mut selected = app.prefs_window.section;
     let (closed, action) = window.show_pages_with_header(ctx, &mut selected, WINDOW_PAGES, app, search_header, clear_search, |ui| {
@@ -2040,6 +2088,11 @@ pub fn show(app: &mut SolveApp, ctx: &egui::Context) {
         Some("cancel") => close(app, true),
         _ if closed => close(app, true),
         _ => {}
+    }
+    // The footer was drawn before this frame's edits (and before an Apply): show Apply's new
+    // state on the next frame rather than at the next input.
+    if app.prefs_window.open && apply_pending(app) != pending {
+        ctx.request_repaint();
     }
 }
 
@@ -2707,6 +2760,7 @@ pub fn control(app: &mut SolveApp, p: &serde_json::Value) -> Result<serde_json::
     }
     if let Some(o) = out.as_object_mut() {
         o.insert("dialog".into(), json!(app.prefs_window.open.then(|| PAGES.get(app.prefs_window.section).copied().unwrap_or_default())));
+        o.insert("apply_enabled".into(), json!(apply_pending(app)));
         o.insert("stand_up_offer".into(), json!(app.stand_up));
         o.insert("stand_up_note".into(), json!(app.stand_up.is_some() && app.stand_up_note));
         o.insert("dark".into(), json!(app.ui.dark));
@@ -5989,6 +6043,62 @@ mod tests {
         assert!(set(&mut app, &json!({"up_axis": "x"})).is_err());
         assert!(set(&mut app, &json!({"theme": "sepia"})).is_err());
         assert!(set(&mut app, &json!({"language": "xx"})).is_err());
+    }
+
+    /// Apply is disabled while nothing changed since the dialog opened or since the last Apply,
+    /// enabled by a change, and disabled again by Apply (#8561).
+    #[test]
+    fn apply_is_enabled_only_while_something_changed() {
+        let mut app = SolveApp::new(solidcraft_engine::Session::default(), Default::default());
+        let ctx = crate::fonts::test_context();
+        let input = || egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 1000.0))),
+            focused: true,
+            ..Default::default()
+        };
+        let draw = |app: &mut SolveApp, events: Vec<egui::Event>| {
+            crate::test_support::frame(&ctx, egui::RawInput { events, ..input() }, |ui| show(app, ui.ctx()));
+            crate::scenario::count_of("dialog:apply:enabled")
+        };
+        let v = control(&mut app, &json!({"open": "Navigation"})).unwrap();
+        assert_eq!(v["apply_enabled"], false, "nothing changed yet");
+        assert_eq!(draw(&mut app, vec![]), Some(0.0), "just opened: Apply is disabled");
+
+        let v = control(&mut app, &json!({"zoom_to_cursor": false})).unwrap();
+        assert_eq!(v["apply_enabled"], true);
+        assert_eq!(draw(&mut app, vec![]), Some(1.0), "after a change: Apply is enabled");
+        let v = control(&mut app, &json!({"zoom_to_cursor": true})).unwrap();
+        assert_eq!(v["apply_enabled"], false, "a change put back by hand leaves nothing to apply");
+        control(&mut app, &json!({"zoom_to_cursor": false})).unwrap();
+
+        // Clicking Apply keeps the change and leaves nothing to apply.
+        draw(&mut app, vec![]);
+        let apply = crate::scenario::handle_at("dialog:apply").unwrap();
+        draw(&mut app, crate::test_support::pointer(apply, true));
+        draw(&mut app, crate::test_support::pointer(apply, false));
+        assert!(app.prefs_window.open && !app.preferences.zoom_to_cursor, "Apply keeps the dialog and the change");
+        assert_eq!(draw(&mut app, vec![]), Some(0.0), "after Apply: Apply is disabled");
+        // A disabled Apply does nothing when clicked.
+        draw(&mut app, crate::test_support::pointer(apply, true));
+        draw(&mut app, crate::test_support::pointer(apply, false));
+        assert_eq!(draw(&mut app, vec![]), Some(0.0));
+
+        // Every setting Cancel would put back counts, the shortcuts and view settings included;
+        // update bookkeeping (not a setting, and Cancel keeps it) does not.
+        app.preferences.update.last_check += 1.0;
+        assert_eq!(draw(&mut app, vec![]), Some(0.0), "update bookkeeping is not a change");
+        app.keymap.custom.insert("solid.extrude".into(), "Shift+E".into());
+        assert_eq!(draw(&mut app, vec![]), Some(1.0), "a rebinding is a change");
+        let v = control(&mut app, &json!({"button": "apply"})).unwrap();
+        assert_eq!(v["apply_enabled"], false);
+        app.ui.show_grid = !app.ui.show_grid;
+        assert_eq!(draw(&mut app, vec![]), Some(1.0), "a view setting is a change");
+
+        // Cancel puts it back and closes; opened again, there is nothing to apply.
+        let v = control(&mut app, &json!({"button": "cancel"})).unwrap();
+        assert_eq!(v["apply_enabled"], false);
+        let v = control(&mut app, &json!({"open": "General"})).unwrap();
+        assert_eq!(v["apply_enabled"], false);
     }
 
     #[test]
