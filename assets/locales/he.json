@@ -1916,6 +1916,7 @@
   "prefs.origin_plane_names": "שמות מישורי הראשית",
   "prefs.origin_plane_names_note": "השמות המוצגים בדפדפן, בתיבות הדו־שיח וברשימות. {top} הוא XY, {front} הוא XZ ו־{right} הוא YZ, כש־Z למעלה. פקודות, סקריפטים ותכנונים שמורים שומרים על XY, XZ ו־YZ.",
   "prefs.overall_speed": "מהירות כללית",
+  "prefs.perspective_fov": "שדה ראייה",
   "prefs.placement": "מיקום",
   "prefs.prefer_free_sketch_points": "העדפת נקודות סקיצה ניתנות להזזה כשנקודות חופפות",
   "prefs.preview_choices": "תצוגה מקדימה של הבחירות שלך",
