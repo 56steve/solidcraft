@@ -326,6 +326,81 @@ fn csv_and_json_round_trip() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// #8960: the text marker accepts ASCII case variants without changing numeric units.
+#[test]
+fn text_parameter_imports_accept_mixed_case_units() {
+    for unit in ["text", "Text", "TEXT", "tExT", " Text "] {
+        let csv = format!("name,unit,expression,comment\nwidth,in,1,numeric control\nverID,{unit},\"\"\"REV-A\"\"\",quoted label\n");
+        let json_text = json!([
+            {"name": "width", "unit": "in", "expression": "1", "comment": "numeric control"},
+            {"name": "verID", "unit": unit, "expression": "\"REV-A\"", "comment": "quoted label"}
+        ])
+        .to_string();
+        for text in [csv, json_text] {
+            let mut s = Session::default();
+            // Check both adding and updating a text parameter through the import command.
+            for expected in ["REV-A", "REV-B"] {
+                let r = run(&mut s, "parameters.import", json!({"text": text.replace("REV-A", expected)}));
+                assert_eq!(r["imported"], json!(["width", "verID"]));
+                assert_eq!(r["errors"], json!([]));
+                let list = run(&mut s, "parameters.list", json!({}));
+                assert_eq!(list["count"], 2);
+                let label = row(&list, "verID");
+                assert_eq!(label["unit"], "text");
+                assert_eq!(label["text"], expected);
+                assert_eq!(label["expression"], expected);
+                assert_eq!(label["comment"], "quoted label");
+                assert!(label["value"].is_null());
+                assert_eq!(row(&list, "width")["unit"], "in");
+                assert_eq!(row(&list, "width")["value"], 1.0);
+                assert_eq!(s.doc.param_values().0["width"].v, 25.4);
+            }
+            // Export still uses the canonical marker and round-trips the unquoted text.
+            let exported = run(&mut s, "parameters.export", json!({"format": "csv"}));
+            assert!(exported["text"].as_str().unwrap().contains("verID,text,REV-B,,quoted label,"), "{exported}");
+            let mut reopened = Session::default();
+            run(&mut reopened, "parameters.import", json!({"text": exported["text"]}));
+            assert_eq!(reopened.doc.text_param("verID").unwrap().text, "REV-B");
+        }
+    }
+}
+
+#[test]
+fn text_parameter_imports_keep_unknown_units_atomic() {
+    let mut s = Session::default();
+    run(&mut s, "parameters.add", json!({"name": "verID", "unit": "text", "expression": "original"}));
+    run(&mut s, "parameters.add", json!({"name": "width", "unit": "mm", "expression": "20"}));
+    let before = s.doc.to_json();
+    for unit in ["Textual", "MM"] {
+        let csv = format!("name,unit,expression\nverID,Text,replacement\nwidth,mm,30\nbad,{unit},1\n");
+        let json_text = json!([
+            {"name": "verID", "unit": "Text", "expression": "replacement"},
+            {"name": "width", "unit": "mm", "expression": "30"},
+            {"name": "bad", "unit": unit, "expression": "1"}
+        ])
+        .to_string();
+        for text in [csv, json_text] {
+            let why = err(&mut s, "parameters.import", json!({"text": text}));
+            assert!(why.contains(&format!("unknown unit `{unit}`")), "{why}");
+            assert_eq!(s.doc.to_json(), before, "a rejected row must roll back the entire import");
+        }
+    }
+}
+
+#[test]
+fn text_parameter_commands_accept_mixed_case_units() {
+    let mut s = Session::default();
+    let r = run(&mut s, "parameters.add", json!({"name": "Label", "unit": "Text", "expression": "\"TAG-A\""}));
+    assert_eq!(r["unit"], "text");
+    assert_eq!(r["text"], "TAG-A");
+    run(&mut s, "parameters.change", json!({"name": "Label", "unit": "TEXT", "expression": "'TAG-B'"}));
+    assert_eq!(s.doc.text_param("Label").unwrap().text, "TAG-B");
+    let r = run(&mut s, "expr.evaluate", json!({"unit": " tExT ", "expression": "\"TAG-C\""}));
+    assert_eq!(r["ok"], true);
+    assert_eq!(r["kind"], "text");
+    assert_eq!(r["text"], "TAG-C");
+}
+
 /// Two triangles joined by three links (a b c, d e f; links a–d, b–e, c–f), a on the origin,
 /// a–b horizontal, every distance a dimension: the construction leaves it to the iteration.
 /// Returns the session, the sketch feature and the nine dimensions' parameters.
