@@ -5051,6 +5051,31 @@ mod tests {
         assert!(crate::scenario::rect_of("prefs:ok").is_some());
     }
 
+    /// Letters typed in the font list's own Search box narrow the list. Preferences' search takes
+    /// typing only when no text field has the keyboard, so it must not take these.
+    #[test]
+    fn typing_in_the_font_lists_search_narrows_the_list_not_the_page() {
+        use serde_json::json;
+        let mut h = crate::scenario::Harness::new();
+        h.call("ui.prefs", json!({"open":"Interface"}));
+        // Found by searching, as the setting is far down the page.
+        h.step(&json!({"text": "font"})).expect("search");
+        h.frames(3);
+        let combo = crate::scenario::handle_at("prefs:ui_font").expect("the search finds the font row");
+        h.call("ui.click", json!({"x":combo.x,"y":combo.y}));
+        h.frames(2);
+        let search = format!("dialog:{} search", crate::i18n::tr("prefs.font"));
+        let field = crate::scenario::handle_at(&search).expect("the font list is open");
+        h.call("ui.click", json!({"x":field.x,"y":field.y}));
+        h.frames(2);
+        h.step(&json!({"text": "Comic"})).expect("type");
+        h.frames(2);
+        assert_eq!(h.app.prefs_window.filter, "font", "the Preferences search took the letters");
+        assert_eq!(h.app.prefs_window.font_filter, "Comic", "the font list's search keeps them");
+        assert!(crate::scenario::handle_at(&search).is_some(), "the font list stays open");
+        h.call("ui.prefs", json!({"button":"cancel"}));
+    }
+
     #[test]
     fn number_fields_take_a_decimal_point_or_a_decimal_comma() {
         // #1347

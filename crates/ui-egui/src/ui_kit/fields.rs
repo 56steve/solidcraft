@@ -207,6 +207,10 @@ fn searchable_dropdown_with(
                     .hint_text(crate::i18n::tr_label("Search"))
                     .desired_width(f32::INFINITY),
             );
+            // Preferences types into its own search only while no field has the keyboard.
+            if search.has_focus() {
+                crate::prefs_search::note_key_sink(ui.ctx());
+            }
             scenario::publish_handle(&format!("dialog:{row} search"), search.rect.center());
             if let Some(custom) = custom {
                 let response = ui.selectable_label(false, custom);
