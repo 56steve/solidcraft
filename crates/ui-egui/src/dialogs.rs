@@ -3828,14 +3828,41 @@ fn look_at_sketch_from(app: &mut SolveApp, again: bool) {
     let st = app.session.world_state();
     if let Some(ss) = app.session.active_sketch.and_then(|id| st.sketch(id)) {
         let n = facing(app, ss.plane.normal(), again);
-        let mut to = app.cam.looking_from(n);
-        // Keep the sketch's own x axis to the right when looking straight down or up.
-        if n.z.abs() > 0.999 {
-            let x = ss.plane.x;
-            to.yaw = if n.z > 0.0 { (-x.y).atan2(x.x) } else { x.y.atan2(x.x) };
-        }
+        let to = square_sketch_axes(app.cam.looking_from(n), ss.plane.x, ss.plane.y);
         app.animate_to(onto_sketch(to, ss));
     }
+}
+
+/// Orient the camera so the sketch's x axis runs right and its y axis is as upright as it can
+/// be (#9029). Facing the plane alone left a sketch on a turned component tilted on screen.
+/// Along world up/down, yaw turns the image (roll stays 0, as Top/Bottom views do); elsewhere
+/// roll squares the axes.
+pub(crate) fn square_sketch_axes(mut cam: solidcraft_engine::render::Camera, sketch_x: Vec3, sketch_y: Vec3) -> solidcraft_engine::render::Camera {
+    let b = cam.back();
+    let in_view = |v: Vec3| v - b * v.dot(b);
+    let Some(mut x) = in_view(sketch_x).normalized() else {
+        return cam;
+    };
+    // Prefer the sense of x that keeps sketch y pointing up on screen.
+    if in_view(sketch_y).dot(b.cross(x)) < 0.0 {
+        x = -x;
+    }
+    if b.dot(cam.up_dir()).abs() > 0.999 {
+        // Looking straight up or down: yaw alone turns the image about the view.
+        let framed = cam.up.to_frame(x);
+        let yaw = if b.dot(cam.up_dir()) > 0.0 { (-framed.y).atan2(framed.x) } else { framed.y.atan2(framed.x) };
+        if yaw.is_finite() {
+            cam.yaw = yaw;
+            cam.roll = 0.0;
+        }
+        return cam;
+    }
+    let (right, up, _) = cam.basis();
+    let roll = x.dot(up).atan2(x.dot(right));
+    if roll.is_finite() {
+        cam.roll = roll;
+    }
+    cam
 }
 
 /// `to` (already facing the sketch) moved onto sketch `ss` (#3198): centred on its geometry, and
