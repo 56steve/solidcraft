@@ -775,6 +775,8 @@
   "at the face": "על הפאה",
   "bom.group_children": "תת-חלקים בשורת החלק שלהם",
   "browser.body_name": "גוף{number}",
+  "browser.calibrate_click_a": "לחצו על התמונה כדי לבחור את נקודה A, או הקלידו את הקואורדינטות שלה.",
+  "browser.calibrate_click_b": "לחצו על התמונה כדי לבחור את נקודה B, או הקלידו את הקואורדינטות שלה.",
   "browser.calibrate_title": "כיול: {name}",
   "browser.capture_many": "{count} רכיבים הוזזו, אך המיקומים שלהם לא נלכדו.",
   "browser.capture_note": "לכידה שומרת את המיקום החדש; החזרה מחזירה את המיקום הקודם.",

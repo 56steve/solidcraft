@@ -775,6 +775,8 @@
   "at the face": "tại bề mặt",
   "bom.group_children": "Chi tiết con trong hàng của chi tiết cha",
   "browser.body_name": "Thân khối{number}",
+  "browser.calibrate_click_a": "Nhấp vào ảnh để chọn điểm A, hoặc nhập tọa độ của điểm đó.",
+  "browser.calibrate_click_b": "Nhấp vào ảnh để chọn điểm B, hoặc nhập tọa độ của điểm đó.",
   "browser.calibrate_title": "Hiệu chuẩn: {name}",
   "browser.capture_many": "{count} chi tiết đã được di chuyển nhưng vị trí chưa được ghi lại.",
   "browser.capture_note": "Ghi vị trí sẽ giữ vị trí mới; Hoàn nguyên sẽ đặt lại như cũ.",

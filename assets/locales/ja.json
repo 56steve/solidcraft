@@ -775,6 +775,8 @@
   "at the face": "面の位置",
   "bom.group_children": "サブパーツを親パーツの行に含める",
   "browser.body_name": "ボディ{number}",
+  "browser.calibrate_click_a": "画像をクリックして点Aを指定するか、座標を入力してください。",
+  "browser.calibrate_click_b": "画像をクリックして点Bを指定するか、座標を入力してください。",
   "browser.calibrate_title": "尺度を設定: {name}",
   "browser.capture_many": "{count}個のコンポーネントが移動されましたが、位置がキャプチャされていません。",
   "browser.capture_note": "「位置をキャプチャ」で新しい位置を保持し、「位置を元に戻す」で以前の位置に戻します。",

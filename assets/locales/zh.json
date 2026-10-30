@@ -775,6 +775,8 @@
   "at the face": "在面上",
   "bom.group_children": "子零件并入所属零件的行",
   "browser.body_name": "实体{number}",
+  "browser.calibrate_click_a": "点击图像选取点 A，或输入其坐标。",
+  "browser.calibrate_click_b": "点击图像选取点 B，或输入其坐标。",
   "browser.calibrate_title": "校准：{name}",
   "browser.capture_many": "{count} 个组件已移动，但尚未捕获其位置。",
   "browser.capture_note": "“捕获位置”保留新位置；“恢复位置”还原原先的位置。",
