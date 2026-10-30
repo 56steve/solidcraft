@@ -1,0 +1,22 @@
+{
+  "ja": {
+    "browser.calibrate_click_a": "画像をクリックして点Aを指定するか、座標を入力してください。",
+    "browser.calibrate_click_b": "画像をクリックして点Bを指定するか、座標を入力してください。"
+  },
+  "zh": {
+    "browser.calibrate_click_a": "点击图像选取点 A，或输入其坐标。",
+    "browser.calibrate_click_b": "点击图像选取点 B，或输入其坐标。"
+  },
+  "ar": {
+    "browser.calibrate_click_a": "انقر على الصورة لتحديد النقطة A، أو اكتب إحداثياتها.",
+    "browser.calibrate_click_b": "انقر على الصورة لتحديد النقطة B، أو اكتب إحداثياتها."
+  },
+  "he": {
+    "browser.calibrate_click_a": "לחצו על התמונה כדי לבחור את נקודה A, או הקלידו את הקואורדינטות שלה.",
+    "browser.calibrate_click_b": "לחצו על התמונה כדי לבחור את נקודה B, או הקלידו את הקואורדינטות שלה."
+  },
+  "vi": {
+    "browser.calibrate_click_a": "Nhấp vào ảnh để chọn điểm A, hoặc nhập tọa độ của điểm đó.",
+    "browser.calibrate_click_b": "Nhấp vào ảnh để chọn điểm B, hoặc nhập tọa độ của điểm đó."
+  }
+}

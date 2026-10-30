@@ -775,6 +775,8 @@
   "at the face": "at the face",
   "bom.group_children": "Sub-parts in their part's row",
   "browser.body_name": "Body{number}",
+  "browser.calibrate_click_a": "Click the image for Point A, or type its coordinates.",
+  "browser.calibrate_click_b": "Click the image for Point B, or type its coordinates.",
   "browser.calibrate_title": "Calibrate: {name}",
   "browser.capture_many": "{count} components were moved but their positions aren't captured.",
   "browser.capture_note": "Capture keeps the new position; Revert puts it back.",
