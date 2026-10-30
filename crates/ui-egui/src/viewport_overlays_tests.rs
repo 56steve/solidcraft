@@ -746,9 +746,18 @@ fn left_history_sidebar_leaves_bottom_readouts_at_the_bottom() {
     h.app.run("inspect.draft", json!({})).unwrap();
     h.frame();
     let viewport = h.app.viewport.layout.as_ref().unwrap().viewport;
+    let history = crate::scenario::rect_of("history:vertical").expect("left History");
     for name in ["analysis:legend", "viewport:frame_rate"] {
         let readout = crate::scenario::rect_of(name).unwrap();
         assert!((readout.bottom() - (viewport.bottom() - 12.0)).abs() < 0.01, "{name}: {readout:?} in {viewport:?}");
+        assert!(!readout.intersects(history), "{name}: {readout:?} under History {history:?}");
+    }
+    for command in ["inspect.accessibility", "inspect.curvature_map"] {
+        h.app.run(command, json!({})).unwrap();
+        h.frame();
+        let legend = crate::scenario::rect_of("analysis:legend").unwrap();
+        assert!(!legend.intersects(history), "{command}: {legend:?} under History {history:?}");
+        assert!(legend.left() >= history.right() - 0.5, "{command}: legend stays right of History");
     }
 }
 

@@ -2939,7 +2939,10 @@ fn analysis_legend(app: &SolveApp, painter: &egui::Painter, rect: Rect) {
     };
     let (pad, row) = (8.0, 18.0);
     let h = pad * 2.0 + 18.0 + along.as_ref().map_or(0.0, |_| row) + row * rows.len() as f32;
-    let r = Rect::from_min_size(pos2(rect.left() + 12.0, rect.bottom() - 12.0 - h), vec2(230.0, h));
+    // Clear Browser and a left History card so the legend is not painted under them (#4515).
+    let free = crate::shell::workspace_content(app, rect);
+    let width = 230.0_f32.min((free.width() - 24.0).max(120.0));
+    let r = Rect::from_min_size(pos2(free.left() + 12.0, free.bottom() - 12.0 - h), vec2(width, h));
     painter.rect(r, t.radius_md, t.overlay, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
     crate::scenario::publish_target("analysis:legend", r);
     let mut y = r.top() + pad;
