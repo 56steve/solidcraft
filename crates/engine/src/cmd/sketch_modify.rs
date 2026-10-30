@@ -121,7 +121,13 @@ fn curve_arg(sk: &Sketch, p: &Value, cmd: &str) -> Result<usize> {
 fn curve_by_id(sk: &Sketch, id: &str, cmd: &str) -> Result<usize> {
     let c = sk.curve_index(id).ok_or_else(|| bad(cmd, format!("unknown curve `{id}`")))?;
     if sk.is_linked_curve(c) {
-        return Err(bad(cmd, format!("`{id}` is projected geometry: break its link first")));
+        let action = match cmd {
+            "sketch.trim" => "Trim",
+            "sketch.extend" => "Extend",
+            "sketch.break" => "Break",
+            _ => "edit",
+        };
+        return Err(bad(cmd, format!("`{id}` is projected from the model — use Break Link on it, then {action} again")));
     }
     if sk.freeform_offsets.iter().any(|offset| offset.output == id)
         || sk.offsets.iter().filter_map(|offset| offset.topology.as_ref()).any(|topology| topology.roles.iter().any(|role| role.output == id))

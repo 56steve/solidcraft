@@ -259,6 +259,21 @@ fn break_link_makes_normal_geometry() {
     assert!(s.execute("sketch.break_link", &json!({"link": "j99"})).is_err());
 }
 
+/// Trim refuses projected edges until Break Link; the message names that command (#8979).
+#[test]
+fn trim_refuses_projected_edges_until_break_link() {
+    let mut s = Session::default();
+    box_part(&mut s);
+    let r = run(&mut s, "sketch.create", json!({"plane": {"face": [20, 15, 20]}}));
+    let link = r["projected"].as_str().unwrap().to_string();
+    let curve = linked_curves(&inspect(&mut s))[0]["id"].as_str().unwrap().to_string();
+    let err = s.execute("sketch.trim", &json!({"curve": curve, "at": [20, 15]})).unwrap_err().to_string();
+    assert!(err.contains("Break Link"), "{err}");
+    assert!(err.contains("projected"), "{err}");
+    run(&mut s, "sketch.break_link", json!({"link": link}));
+    run(&mut s, "sketch.trim", json!({"curve": curve, "at": [20, 15]}));
+}
+
 /// The sketch's curves as evaluated (after its links were refreshed): (id, construction).
 fn evaluated_curves(s: &Session, id: u64) -> Vec<(String, bool)> {
     s.model.state().sketch(id).unwrap().sketch.curves.iter().map(|c| (c.id.clone(), c.construction)).collect()

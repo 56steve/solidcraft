@@ -2446,19 +2446,24 @@ fn pick_hits(app: &SolveApp, proj: &Proj, pos: Pos2, other_sketch_points: bool, 
         let active = s.active_sketch == Some(sid);
         let bonus = if active { 2.0 } else { 0.0 };
         let tier = |own: bool| u8::from(!(active && own));
+        // Trim / Extend / Break edit free curves; projected edges under the same click should
+        // yield so a drawn rectangle on a face is not refused as projected geometry (#8979).
+        let trim_prefers_free = app.tool.as_ref().is_some_and(|t| matches!(t.cmd, "sketch.trim" | "sketch.extend" | "sketch.break"));
         for (i, c) in ss.sketch.curves.iter().enumerate() {
             if !solidcraft_engine::view::sketch_curve_visible(&ss.sketch, i) {
                 continue;
             }
             let straight = matches!(c.kind, CurveKind::Line { .. });
-            let tier = tier(c.link.is_none() || ss.sketch.is_text_curve(i));
+            let own = c.link.is_none() || ss.sketch.is_text_curve(i);
+            let tier = tier(own);
             // Construction geometry lying on a regular curve yields to it (#6396); Select Other
             // still offers both.
             let helper = if c.construction || c.centerline { 0.5 } else { 0.0 };
+            let linked_penalty = if trim_prefers_free && !own { 3.5 } else { 0.0 };
             for part in &crate::sketch_display::curve_sample(app, sid, i, &ss.plane, proj).parts {
                 let pts: Vec<(Pos2, Vec3)> = part.iter().filter_map(|q| proj.to_screen(*q).map(|sp| (sp, *q))).collect();
                 for w in pts.windows(2) {
-                    let dd = seg_dist(pos, w[0].0, w[1].0) - bonus + helper;
+                    let dd = seg_dist(pos, w[0].0, w[1].0) - bonus + helper + linked_penalty;
                     if dd < 6.0 && bestc.wants((tier, dd)) {
                         let point = ray_segment_closest(o, d, w[0].1, w[1].1);
                         bestc.offer((tier, dd), Hit::SketchCurve { sketch: sid, id: c.id.clone(), straight, point });
