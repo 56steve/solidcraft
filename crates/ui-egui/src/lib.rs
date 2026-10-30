@@ -1962,11 +1962,16 @@ impl SolveApp {
         let _ = self.run("component.activate", p);
     }
 
-    /// Turn the view to face the sketch just opened, and remember the view from `before` it and
-    /// the one facing it for when the sketch ends (#7038).
-    pub(crate) fn look_at_opened_sketch(&mut self, before: Camera) {
-        dialogs::look_at_sketch(self);
+    /// Turn the view to face the sketch just opened, unless the "Turn to face a sketch when it
+    /// opens" preference is off, and remember the view from `before` it and the one facing it for
+    /// when the sketch ends (#7038). Returns whether the view turned.
+    pub(crate) fn look_at_opened_sketch(&mut self, before: Camera) -> bool {
+        let turn = self.preferences.sketch_open_look_at;
+        if turn {
+            dialogs::look_at_sketch(self);
+        }
         self.pre_sketch_cam = self.session.active_sketch.map(|sketch| PreSketchView { sketch, before, facing: self.settled_cam() });
+        turn
     }
 
     /// Where the camera is going: the end of the running camera animation, else where it is.

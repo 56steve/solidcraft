@@ -50,6 +50,8 @@ pub(super) fn show(app: &mut SolveApp, ui: &mut egui::Ui) {
                 });
             });
         });
+        ui_kit::checkbox(ui, app.tr("prefs.sketch_open_look_at"), &mut app.preferences.sketch_open_look_at)
+            .on_hover_text(app.tr("prefs.sketch_open_look_at_note"));
         ui_kit::settings_block_hint(
             ui,
             app.tr("prefs.sketch_exit_view"),
